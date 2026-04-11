@@ -1,0 +1,52 @@
+# -----------------------------------------------------------------------------
+# Local developer overrides for docker-compose.yml.
+#
+# Copy to `docker-compose.override.yml` (gitignored by default) and uncomment
+# whatever is useful for your workflow. Compose will merge this file on top of
+# docker-compose.yml automatically.
+#
+#   cp docker-compose.override.yml.example docker-compose.override.yml
+# -----------------------------------------------------------------------------
+
+services:
+  # Expose the Postgres metadata DB on the host for DBeaver / psql / pgAdmin.
+  # postgres:
+  #   ports:
+  #     - "5432:5432"
+
+  # Expose Redis for local inspection with redis-cli.
+  # redis:
+  #   ports:
+  #     - "6379:6379"
+
+  # Expose LocalStack's edge port on the host so the AWS CLI / boto3 can
+  # reach it from outside the compose network:
+  #   aws --endpoint-url http://localhost:4566 s3 ls
+  # localstack:
+  #   ports:
+  #     - "4566:4566"
+
+  # Live-reload DAGs and source code from the host during development.
+  # This replaces the named `airflow-dags` volume with a bind mount, which is
+  # convenient for iteration but bypasses the production-like isolation of the
+  # base compose file.
+  # airflow-webserver:
+  #   volumes:
+  #     - ./dags:/opt/airflow/dags
+  #     - ./src:/opt/airflow/src
+  #   environment:
+  #     AIRFLOW__LOGGING__LOGGING_LEVEL: DEBUG
+  # airflow-scheduler:
+  #   volumes:
+  #     - ./dags:/opt/airflow/dags
+  #     - ./src:/opt/airflow/src
+  # airflow-triggerer:
+  #   volumes:
+  #     - ./dags:/opt/airflow/dags
+  #     - ./src:/opt/airflow/src
+
+  # Install extra Python packages into the Airflow image at container start.
+  # Prefer building a custom image for anything permanent.
+  # airflow-webserver:
+  #   environment:
+  #     _PIP_ADDITIONAL_REQUIREMENTS: "apache-airflow-providers-amazon==8.25.0"

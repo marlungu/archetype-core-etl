@@ -9,26 +9,43 @@
 #   docker compose up -d
 
 x-airflow-common: &airflow-common
-  # Airflow 3.2.0 patches CVE-2025-57735 (JWT invalidation bypass),
+  # ---------------------------------------------------------------------------
+  # Settings below verified against Apache Airflow 3.2.0.
+  # Sources:
+  #   - https://airflow.apache.org/docs/apache-airflow/3.2.0/configurations-ref.html
+  #   - https://airflow.apache.org/docs/apache-airflow/3.2.0/core-concepts/auth-manager/simple/index.html
+  #   - https://airflow.apache.org/docs/apache-airflow-providers-fab/stable/cli-ref.html
+  #   - https://airflow.apache.org/docs/docker-stack/entrypoint.html
+  #
+  # 3.2.0 patches CVE-2025-57735 (JWT invalidation bypass),
   # CVE-2025-68675 (proxy credential exposure in logs), and
   # CVE-2025-68438 (secret exposure in rendered templates UI).
+  # ---------------------------------------------------------------------------
   image: apache/airflow:3.2.0
   environment: &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    # The 3.2 default is SimpleAuthManager, which only supports static users
+    # configured via [core] simple_auth_manager_users with auto-generated
+    # passwords. We need a deterministic admin password sourced from .env, so
+    # we explicitly switch to the FAB auth manager (installed below via
+    # _PIP_ADDITIONAL_REQUIREMENTS) which supports `airflow users create -p`.
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${AIRFLOW_DB_NAME}
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${AIRFLOW_DB_NAME}
     AIRFLOW__CELERY__BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
-    # Airflow 3.x moved webserver config under [api]. The legacy
-    # AIRFLOW__WEBSERVER__SECRET_KEY is still accepted for back-compat but
-    # AIRFLOW__API__SECRET_KEY is the canonical key in 3.x.
+    # Airflow 3.x moved webserver-side config under [api]; AIRFLOW__API__SECRET_KEY
+    # and AIRFLOW__API__EXPOSE_CONFIG are the canonical 3.x keys. There is
+    # intentionally no AIRFLOW__API__AUTH_BACKENDS — that setting was removed
+    # in 3.x; auth backend selection is now the auth manager's responsibility.
     AIRFLOW__API__SECRET_KEY: ${AIRFLOW_WEBSERVER_SECRET_KEY}
     AIRFLOW__API__EXPOSE_CONFIG: "false"
-    # basic_auth backend was removed in Airflow 3.x; session auth only.
-    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.session
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    # Local-dev only: install the FAB provider on container start. For a
+    # production image this should be baked into a custom Dockerfile instead.
+    _PIP_ADDITIONAL_REQUIREMENTS: "apache-airflow-providers-fab>=2.0.0"
     # AWS / LocalStack wiring for local S3 emulation.
     AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
     AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}

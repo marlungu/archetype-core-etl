@@ -1,12 +1,21 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# archetype-core-etl — first-run initialization for the Airflow stack.
+# archetype-core-etl — first-run initialization for the Airflow 3.x stack.
 #
 # Runs inside the `airflow-init` compose service as root. Responsibilities:
 #   1. Wait for Postgres to accept connections.
 #   2. Ensure the separate audit database exists (idempotent).
 #   3. Run `airflow db migrate` to create/upgrade the metadata schema.
 #   4. Create the default admin user if it does not already exist.
+#
+# Auth manager note: Airflow 3.2 ships with SimpleAuthManager as the default,
+# which only supports static users with auto-generated passwords (configured
+# via [core] simple_auth_manager_users). To get a deterministic admin
+# password from .env, docker-compose.yml installs the FAB provider via
+# _PIP_ADDITIONAL_REQUIREMENTS and switches AIRFLOW__CORE__AUTH_MANAGER to
+# FabAuthManager. The `airflow users create` command used below is provided
+# by that provider — it does NOT exist with the SimpleAuthManager default.
+# Reference: https://airflow.apache.org/docs/apache-airflow-providers-fab/stable/cli-ref.html
 #
 # All credentials are read from environment variables — nothing is mounted
 # from the host. The script is safe to re-run; each step is idempotent.

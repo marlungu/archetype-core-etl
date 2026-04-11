@@ -42,9 +42,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://example.com/archetype-core-etl"
-Repository = "https://example.com/archetype-core-etl"
-Issues = "https://example.com/archetype-core-etl/issues"
+Homepage = "https://github.com/marlungu/archetype-core-etl"
+Repository = "https://github.com/marlungu/archetype-core-etl"
+Issues = "https://github.com/marlungu/archetype-core-etl/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/archetype_core_etl"]

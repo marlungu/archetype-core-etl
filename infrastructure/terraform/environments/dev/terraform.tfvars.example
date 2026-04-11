@@ -1,0 +1,7 @@
+# Copy this file to terraform.tfvars and replace every placeholder.
+# terraform.tfvars is gitignored — never commit real values.
+
+environment     = "dev"
+region          = "us-east-1"
+project_name    = "archetype-core-etl"
+databricks_host = "https://REPLACE_ME.cloud.databricks.com"

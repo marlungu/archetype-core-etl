@@ -29,6 +29,7 @@ dependencies = [
     "python-json-logger~=2.0",
     "boto3~=1.34",
     "great-expectations~=1.0",
+    "pandas~=2.0",
 ]
 
 [project.optional-dependencies]

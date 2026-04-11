@@ -12,7 +12,7 @@ import logging
 import sys
 from typing import IO
 
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger.json import JsonFormatter
 
 _DEFAULT_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 
@@ -40,7 +40,7 @@ def configure_logging(
         root.removeHandler(existing)
 
     handler = logging.StreamHandler(stream or sys.stdout)
-    formatter = jsonlogger.JsonFormatter(
+    formatter = JsonFormatter(
         _DEFAULT_FORMAT,
         rename_fields={"asctime": "timestamp", "levelname": "level"},
         json_ensure_ascii=False,

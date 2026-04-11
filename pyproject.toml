@@ -75,6 +75,7 @@ select = [
     "C4",  # flake8-comprehensions
     "PL",  # pylint
     "RUF", # ruff-specific
+    "S",   # flake8-bandit security checks
 ]
 ignore = [
     "E501",  # handled by formatter

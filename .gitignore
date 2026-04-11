@@ -104,7 +104,6 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
-.terraform.lock.hcl
 
 # ---------- Secrets / credentials ----------
 *.pem
@@ -116,6 +115,12 @@ service-account*.json
 .secrets/
 secrets.yaml
 secrets.yml
+.env.local
+.env.dev
+.env.staging
+.env.prod
+.env.*.local
+*.env
 
 # ---------- IDE / editors ----------
 .idea/

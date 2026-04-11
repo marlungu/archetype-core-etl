@@ -1,13 +1,13 @@
-"""USD cost accounting for Claude 3.5 Sonnet on Amazon Bedrock.
+"""USD cost accounting for Claude Sonnet 4.6 on Amazon Bedrock.
 
 Accumulates input and output token counts across a classification run
-and emits a structured cost summary at batch end. Prices are expressed
-as USD per 1,000 tokens so the conversion matches AWS billing docs
-without intermediate floating-point scaling.
+and emits a structured cost summary at batch end. Prices are stored as
+USD per 1,000 tokens (AWS publishes per-1M rates; divide by 1,000).
 
-Pricing source: Bedrock on-demand pricing for
-``anthropic.claude-3-5-sonnet-20241022-v2:0`` as of this commit. Update
-:data:`DEFAULT_PRICING` when AWS publishes changes.
+Pricing source: Bedrock on-demand pricing for Claude Sonnet 4.6
+(``us.anthropic.claude-sonnet-4-6`` Cross-Region Inference profile) as
+of this commit — $3.00 per 1M input tokens, $15.00 per 1M output
+tokens. Update :data:`DEFAULT_PRICING` when AWS publishes changes.
 """
 
 from __future__ import annotations
@@ -28,8 +28,9 @@ class ModelPricing:
 
 
 # Bedrock on-demand pricing, USD per 1,000 tokens.
+# Sonnet 4.6 list price: $3.00/1M input, $15.00/1M output.
 DEFAULT_PRICING: dict[str, ModelPricing] = {
-    "anthropic.claude-3-5-sonnet-20241022-v2:0": ModelPricing(
+    "us.anthropic.claude-sonnet-4-6": ModelPricing(
         input_usd_per_1k=0.003,
         output_usd_per_1k=0.015,
     ),

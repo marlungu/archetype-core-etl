@@ -73,11 +73,14 @@ class ClassificationResult:
 class BedrockClassifier:
     """Classify federal document records via Amazon Bedrock / Claude."""
 
+    #: Default Bedrock model: Cross-Region Inference profile for Claude Sonnet 4.6.
+    DEFAULT_MODEL_ID: str = "us.anthropic.claude-sonnet-4-6"
+
     def __init__(
         self,
         *,
         client: Any,
-        model_id: str,
+        model_id: str = DEFAULT_MODEL_ID,
         rate_limiter: RateLimiter | None = None,
         cost_tracker: CostTracker | None = None,
         max_tokens: int = 512,

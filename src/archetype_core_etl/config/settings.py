@@ -50,6 +50,10 @@ class AWSSettings(BaseSettings):
         default=None,
         description="Optional endpoint override (e.g. LocalStack at http://localhost:4566).",
     )
+    kinesis_stream_name: str | None = Field(
+        default=None,
+        description="Kinesis stream name for real-time document ingestion.",
+    )
     raw_bucket: str = Field(..., description="S3 bucket for raw source artifacts.")
     processed_bucket: str = Field(..., description="S3 bucket for processed outputs.")
     audit_bucket: str = Field(..., description="S3 bucket for audit artifacts.")
@@ -79,6 +83,22 @@ class AirflowSettings(BaseSettings):
         default=None,
         description="ARN of the MWAA execution role (sensitive — identifies the account).",
     )
+
+
+class DatabricksSettings(BaseSettings):
+    """Databricks workspace and SQL warehouse configuration."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="ARCHETYPE_DATABRICKS_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    host: str = Field(..., description="Databricks workspace URL.")
+    warehouse_id: str = Field(..., description="SQL warehouse ID for statement execution.")
+    catalog: str = Field(..., description="Unity Catalog catalog name.")
+    schema: str = Field(default="default", description="Unity Catalog schema name.")
 
 
 class BedrockSettings(BaseSettings):
@@ -114,3 +134,4 @@ class Settings(BaseSettings):
     aws: AWSSettings = Field(default_factory=AWSSettings)
     airflow: AirflowSettings = Field(default_factory=AirflowSettings)
     bedrock: BedrockSettings = Field(default_factory=BedrockSettings)
+    databricks: DatabricksSettings = Field(default_factory=DatabricksSettings)

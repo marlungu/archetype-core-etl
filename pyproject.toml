@@ -30,6 +30,8 @@ dependencies = [
     "boto3~=1.42",
     "great-expectations~=1.16",
     "pandas~=2.0",
+    "databricks-sdk~=0.102",
+    "psycopg2-binary~=2.9",
 ]
 
 [project.optional-dependencies]

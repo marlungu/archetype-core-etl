@@ -1,0 +1,36 @@
+# Pre-commit hooks for archetype-core-etl.
+# Install: pre-commit install
+# Run all: pre-commit run --all-files
+# All repo versions pinned to exact tags.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-toml
+      - id: detect-private-key
+      - id: detect-aws-credentials
+        args: [--allow-missing-credentials]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.10
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.20.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - "pydantic>=2.12"
+          - "pydantic-settings>=2.13"
+          - "boto3-stubs[bedrock-runtime,kinesis,s3]>=1.42"
+        args: [--config-file=pyproject.toml]
+        pass_filenames: false
+        files: ^src/

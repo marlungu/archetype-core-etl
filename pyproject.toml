@@ -36,7 +36,9 @@ dependencies = [
 
 [project.optional-dependencies]
 airflow = [
-    # apache-airflow and provider packages added in later commits.
+    "apache-airflow~=3.2",
+    "apache-airflow-providers-celery~=4.0",
+    "apache-airflow-providers-fab~=1.0",
 ]
 databricks = [
     # databricks-sdk, databricks-connect added in later commits.

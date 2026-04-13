@@ -38,4 +38,4 @@ def get_settings() -> Settings:
     ``get_settings.cache_clear()`` in tests when you need to reload
     environment variables.
     """
-    return Settings()
+    return Settings()  # type: ignore[call-arg]

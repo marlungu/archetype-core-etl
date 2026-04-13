@@ -130,8 +130,8 @@ class Settings(BaseSettings):
         description="Deployment environment identifier (dev, staging, prod).",
     )
 
-    database: DatabaseSettings = Field(default_factory=lambda: DatabaseSettings())
-    aws: AWSSettings = Field(default_factory=lambda: AWSSettings())
-    airflow: AirflowSettings = Field(default_factory=lambda: AirflowSettings())
-    bedrock: BedrockSettings = Field(default_factory=lambda: BedrockSettings())
-    databricks: DatabricksSettings = Field(default_factory=lambda: DatabricksSettings())
+    database: DatabaseSettings = Field(default_factory=lambda: DatabaseSettings())  # type: ignore[call-arg]
+    aws: AWSSettings = Field(default_factory=lambda: AWSSettings())  # type: ignore[call-arg]
+    airflow: AirflowSettings = Field(default_factory=lambda: AirflowSettings())  # type: ignore[call-arg]
+    bedrock: BedrockSettings = Field(default_factory=lambda: BedrockSettings())  # type: ignore[call-arg]
+    databricks: DatabricksSettings = Field(default_factory=lambda: DatabricksSettings())  # type: ignore[call-arg]

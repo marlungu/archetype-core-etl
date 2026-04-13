@@ -18,8 +18,13 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import great_expectations as gx
-import great_expectations.expectations as gxe
 import pandas as pd
+from great_expectations.expectations import (
+    ExpectColumnValueLengthsToBeBetween,
+    ExpectColumnValuesToBeBetween,
+    ExpectColumnValuesToBeInSet,
+    ExpectColumnValuesToNotBeNull,
+)
 
 from archetype_core_etl.common.logging import get_logger
 
@@ -76,23 +81,23 @@ class QualityGate:
         self._agencies = list(allowed_agencies or _ALLOWED_AGENCIES)
         self._priority_tiers = list(allowed_priority_tiers or _ALLOWED_PRIORITY_TIERS)
 
-    def _build_suite(self, context: Any) -> gx.ExpectationSuite:
+    def _build_suite(self, context: Any) -> Any:
         """Assemble the expectation suite within an active GX context."""
         suite = context.suites.add(gx.ExpectationSuite(name=_SUITE_NAME))
-        suite.add_expectation(gxe.ExpectColumnValuesToNotBeNull(column="record_id"))
-        suite.add_expectation(gxe.ExpectColumnValuesToNotBeNull(column="submitted_at"))
+        suite.add_expectation(ExpectColumnValuesToNotBeNull(column="record_id"))
+        suite.add_expectation(ExpectColumnValuesToNotBeNull(column="submitted_at"))
         suite.add_expectation(
-            gxe.ExpectColumnValuesToBeInSet(column="document_type", value_set=self._document_types)
+            ExpectColumnValuesToBeInSet(column="document_type", value_set=self._document_types)
         )
         suite.add_expectation(
-            gxe.ExpectColumnValuesToBeInSet(column="agency", value_set=self._agencies)
+            ExpectColumnValuesToBeInSet(column="agency", value_set=self._agencies)
         )
         suite.add_expectation(
-            gxe.ExpectColumnValuesToBeInSet(column="priority_tier", value_set=self._priority_tiers)
+            ExpectColumnValuesToBeInSet(column="priority_tier", value_set=self._priority_tiers)
         )
-        suite.add_expectation(gxe.ExpectColumnValuesToBeBetween(column="pages", min_value=1))
+        suite.add_expectation(ExpectColumnValuesToBeBetween(column="pages", min_value=1))
         suite.add_expectation(
-            gxe.ExpectColumnValueLengthsToBeBetween(column="document_text", min_value=10)
+            ExpectColumnValueLengthsToBeBetween(column="document_text", min_value=10)
         )
         return suite
 

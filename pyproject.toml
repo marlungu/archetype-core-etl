@@ -32,6 +32,7 @@ dependencies = [
     "pandas~=2.0",
     "databricks-sdk~=0.102",
     "psycopg2-binary~=2.9",
+    "faker~=40.0",
 ]
 
 [project.optional-dependencies]

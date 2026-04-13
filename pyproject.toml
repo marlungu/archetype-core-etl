@@ -7,7 +7,7 @@ name = "archetype-core-etl"
 version = "0.1.0"
 description = "Production-grade ETL platform orchestrated by Airflow, powered by Databricks, provisioned by Terraform."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = { text = "Proprietary" }
 authors = [
     { name = "Archetype Data Platform" },
@@ -17,19 +17,18 @@ classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Database",
 ]
 dependencies = [
-    "pydantic~=2.12",
+    "pydantic~=2.13",
     "pydantic-settings~=2.13",
-    "python-dotenv~=1.0",
+    "python-dotenv~=1.2",
     "python-json-logger~=4.1",
     "boto3~=1.42",
     "great-expectations~=1.16",
-    "pandas~=2.0",
+    "pandas~=3.0",
     "databricks-sdk~=0.102",
     "psycopg2-binary~=2.9",
     "faker~=40.0",
@@ -38,21 +37,21 @@ dependencies = [
 [project.optional-dependencies]
 airflow = [
     "apache-airflow~=3.2",
-    "apache-airflow-providers-celery~=4.0",
-    "apache-airflow-providers-fab~=1.0",
+    "apache-airflow-providers-celery~=3.18",
+    "apache-airflow-providers-fab~=2.3",
 ]
 databricks = [
     # databricks-connect added when Databricks Connect support is needed.
 ]
 dev = [
-    "pytest>=8.0",
-    "pytest-cov>=5.0",
-    "pytest-mock~=3.14",
-    "ruff>=0.6",
-    "mypy>=1.11",
-    "pre-commit>=3.8",
+    "pytest~=9.0",
+    "pytest-cov~=7.1",
+    "pytest-mock~=3.15",
+    "ruff~=0.15",
+    "mypy~=1.20",
+    "pre-commit~=4.5",
     "boto3-stubs[s3,kinesis,bedrock-runtime]~=1.42",
-    "pandas-stubs~=2.0",
+    "pandas-stubs~=3.0",
     "types-psycopg2~=2.9",
 ]
 
@@ -74,7 +73,7 @@ include = [
 # ---------- Ruff ----------
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
@@ -109,7 +108,7 @@ indent-style = "space"
 
 # ---------- Mypy ----------
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 warn_unused_configs = true
 warn_return_any = true
@@ -124,7 +123,7 @@ pretty = true
 
 # ---------- Pytest ----------
 [tool.pytest.ini_options]
-minversion = "8.0"
+minversion = "9.0"
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = [

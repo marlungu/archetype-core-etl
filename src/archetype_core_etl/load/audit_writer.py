@@ -16,9 +16,9 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 
-import psycopg2  # type: ignore[import-untyped]
-from psycopg2 import sql  # type: ignore[import-untyped]
-from psycopg2.extras import execute_values  # type: ignore[import-untyped]
+import psycopg2
+from psycopg2 import sql
+from psycopg2.extras import execute_values
 
 from archetype_core_etl.classify.bedrock_classifier import ClassificationResult
 from archetype_core_etl.classify.cost_tracker import DEFAULT_PRICING, ModelPricing

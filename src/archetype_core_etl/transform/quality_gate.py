@@ -17,9 +17,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-import great_expectations as gx  # type: ignore[import-untyped]
-import great_expectations.expectations as gxe  # type: ignore[import-untyped]
-import pandas as pd  # type: ignore[import-untyped]
+import great_expectations as gx
+import great_expectations.expectations as gxe
+import pandas as pd
 
 from archetype_core_etl.common.logging import get_logger
 
@@ -76,7 +76,7 @@ class QualityGate:
         self._agencies = list(allowed_agencies or _ALLOWED_AGENCIES)
         self._priority_tiers = list(allowed_priority_tiers or _ALLOWED_PRIORITY_TIERS)
 
-    def _build_suite(self, context: gx.DataContext) -> gx.ExpectationSuite:
+    def _build_suite(self, context: Any) -> gx.ExpectationSuite:
         """Assemble the expectation suite within an active GX context."""
         suite = context.suites.add(gx.ExpectationSuite(name=_SUITE_NAME))
         suite.add_expectation(gxe.ExpectColumnValuesToNotBeNull(column="record_id"))

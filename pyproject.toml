@@ -122,10 +122,6 @@ warn_unused_ignores = true
 show_error_codes = true
 pretty = true
 
-[[tool.mypy.overrides]]
-module = "tests.*"
-disallow_untyped_defs = false
-
 # ---------- Pytest ----------
 [tool.pytest.ini_options]
 minversion = "8.0"

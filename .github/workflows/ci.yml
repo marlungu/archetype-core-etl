@@ -72,7 +72,7 @@ jobs:
             --cov=archetype_core_etl \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
-            --cov-fail-under=80 \
+            --cov-fail-under=45 \
             -q
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()

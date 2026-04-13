@@ -19,8 +19,8 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any, cast
 
-import boto3  # type: ignore[import-untyped]
-from botocore.exceptions import BotoCoreError, ClientError  # type: ignore[import-untyped]
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
 
 from archetype_core_etl.common.exceptions import ExtractionError
 from archetype_core_etl.common.logging import get_logger

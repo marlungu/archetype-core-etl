@@ -258,8 +258,8 @@ class BedrockClassifier:
         return ClassificationResult(
             record_id=str(record.record_id),
             compliance_score=score,
-            risk_tier=risk_tier,  # type: ignore[arg-type]
-            policy_alignment=alignment,  # type: ignore[arg-type]
+            risk_tier=risk_tier,
+            policy_alignment=alignment,
             reasoning=str(payload["reasoning"]),
             tokens_used=input_tokens + output_tokens,
             model_id=self._model_id,

@@ -16,8 +16,8 @@ from collections.abc import Iterator
 from datetime import date
 from typing import Any
 
-import boto3  # type: ignore[import-untyped]
-from botocore.exceptions import BotoCoreError, ClientError  # type: ignore[import-untyped]
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
 
 from archetype_core_etl.common.exceptions import ExtractionError
 from archetype_core_etl.common.logging import get_logger

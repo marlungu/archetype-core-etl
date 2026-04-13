@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -13,7 +13,7 @@ def valid_record_dict() -> dict:
     """A minimal, valid raw record dict for FederalDocumentRecord."""
     return {
         "record_id": str(uuid.uuid4()),
-        "submitted_at": datetime(2025, 6, 15, 10, 30, 0, tzinfo=timezone.utc).isoformat(),
+        "submitted_at": datetime(2025, 6, 15, 10, 30, 0, tzinfo=UTC).isoformat(),
         "document_type": "application",
         "agency": "USCIS",
         "applicant_id": "A-12345678",

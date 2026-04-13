@@ -17,9 +17,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-import great_expectations as gx
-import great_expectations.expectations as gxe
-import pandas as pd
+import great_expectations as gx  # type: ignore[import-untyped]
+import great_expectations.expectations as gxe  # type: ignore[import-untyped]
+import pandas as pd  # type: ignore[import-untyped]
 
 from archetype_core_etl.common.logging import get_logger
 
@@ -75,35 +75,24 @@ class QualityGate:
         self._document_types = list(allowed_document_types or _ALLOWED_DOCUMENT_TYPES)
         self._agencies = list(allowed_agencies or _ALLOWED_AGENCIES)
         self._priority_tiers = list(allowed_priority_tiers or _ALLOWED_PRIORITY_TIERS)
-        self._suite = self._build_suite()
 
-    def _build_suite(self) -> gx.ExpectationSuite:
-        """Assemble the expectation suite once; reused across validate() calls."""
-        suite = gx.ExpectationSuite(name=_SUITE_NAME)
+    def _build_suite(self, context: gx.DataContext) -> gx.ExpectationSuite:
+        """Assemble the expectation suite within an active GX context."""
+        suite = context.suites.add(gx.ExpectationSuite(name=_SUITE_NAME))
         suite.add_expectation(gxe.ExpectColumnValuesToNotBeNull(column="record_id"))
         suite.add_expectation(gxe.ExpectColumnValuesToNotBeNull(column="submitted_at"))
         suite.add_expectation(
-            gxe.ExpectColumnValuesToBeInSet(
-                column="document_type", value_set=self._document_types
-            )
+            gxe.ExpectColumnValuesToBeInSet(column="document_type", value_set=self._document_types)
         )
         suite.add_expectation(
-            gxe.ExpectColumnValuesToBeInSet(
-                column="agency", value_set=self._agencies
-            )
+            gxe.ExpectColumnValuesToBeInSet(column="agency", value_set=self._agencies)
         )
         suite.add_expectation(
-            gxe.ExpectColumnValuesToBeInSet(
-                column="priority_tier", value_set=self._priority_tiers
-            )
+            gxe.ExpectColumnValuesToBeInSet(column="priority_tier", value_set=self._priority_tiers)
         )
+        suite.add_expectation(gxe.ExpectColumnValuesToBeBetween(column="pages", min_value=1))
         suite.add_expectation(
-            gxe.ExpectColumnValuesToBeBetween(column="pages", min_value=1)
-        )
-        suite.add_expectation(
-            gxe.ExpectColumnValueLengthsToBeBetween(
-                column="document_text", min_value=10
-            )
+            gxe.ExpectColumnValueLengthsToBeBetween(column="document_text", min_value=10)
         )
         return suite
 
@@ -125,15 +114,12 @@ class QualityGate:
         # Fresh ephemeral context per batch isolates state and avoids any
         # cross-batch leakage of data source / asset registration.
         context = gx.get_context(mode="ephemeral")
+        suite = self._build_suite(context)
         data_source = context.data_sources.add_pandas(name=_DATASOURCE_NAME)
         data_asset = data_source.add_dataframe_asset(name=_ASSET_NAME)
-        batch_definition = data_asset.add_batch_definition_whole_dataframe(
-            _BATCH_DEFINITION_NAME
-        )
-        batch = batch_definition.get_batch(
-            batch_parameters={"dataframe": dataframe}
-        )
-        suite_result = batch.validate(self._suite)
+        batch_definition = data_asset.add_batch_definition_whole_dataframe(_BATCH_DEFINITION_NAME)
+        batch = batch_definition.get_batch(batch_parameters={"dataframe": dataframe})
+        suite_result = batch.validate(suite)
 
         failure_details: list[dict[str, Any]] = []
         failed = 0
@@ -143,10 +129,11 @@ class QualityGate:
             info = expectation_result.result or {}
             unexpected = int(info.get("unexpected_count", 0))
             failed += unexpected
+            config = expectation_result.expectation_config
             failure_details.append(
                 {
-                    "expectation": expectation_result.expectation_config.type,
-                    "column": expectation_result.expectation_config.kwargs.get("column"),
+                    "expectation": config.type if config is not None else "unknown",
+                    "column": config.kwargs.get("column") if config is not None else None,
                     "unexpected_count": unexpected,
                     "unexpected_values": info.get("partial_unexpected_list", []),
                 }

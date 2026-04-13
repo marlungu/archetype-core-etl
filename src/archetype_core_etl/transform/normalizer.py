@@ -81,9 +81,7 @@ def normalize_record(raw: dict[str, Any]) -> FederalDocumentRecord:
             "normalize_record.validation_failed",
             extra={"record_id": str(record_id)},
         )
-        raise TransformationError(
-            f"Failed to normalize record {record_id}: {exc}"
-        ) from exc
+        raise TransformationError(f"Failed to normalize record {record_id}: {exc}") from exc
 
 
 __all__ = ["normalize_record"]

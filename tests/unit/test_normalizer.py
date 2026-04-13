@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
-
 import pytest
 
 from archetype_core_etl.common.exceptions import TransformationError

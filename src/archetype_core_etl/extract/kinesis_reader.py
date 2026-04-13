@@ -17,10 +17,10 @@ import base64
 import json
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
-import boto3
-from botocore.exceptions import BotoCoreError, ClientError
+import boto3  # type: ignore[import-untyped]
+from botocore.exceptions import BotoCoreError, ClientError  # type: ignore[import-untyped]
 
 from archetype_core_etl.common.exceptions import ExtractionError
 from archetype_core_etl.common.logging import get_logger
@@ -128,10 +128,8 @@ class KinesisReader:
                 "kinesis_reader.get_shard_iterator_failed",
                 extra={"stream": self._stream_name, "shard": shard_id},
             )
-            raise ExtractionError(
-                f"Failed to get shard iterator for {shard_id}: {exc}"
-            ) from exc
-        return response.get("ShardIterator")
+            raise ExtractionError(f"Failed to get shard iterator for {shard_id}: {exc}") from exc
+        return cast(str | None, response.get("ShardIterator"))
 
     def _get_records(
         self,
@@ -148,9 +146,7 @@ class KinesisReader:
                 "kinesis_reader.get_records_failed",
                 extra={"stream": self._stream_name, "shard": shard_id},
             )
-            raise ExtractionError(
-                f"Failed to get records from shard {shard_id}: {exc}"
-            ) from exc
+            raise ExtractionError(f"Failed to get records from shard {shard_id}: {exc}") from exc
 
         records = response.get("Records", [])
         if records:
@@ -171,7 +167,7 @@ class KinesisReader:
         data = record["Data"]
         payload = data if isinstance(data, (bytes, bytearray)) else base64.b64decode(data)
         try:
-            return json.loads(payload)
+            return cast(dict[str, Any], json.loads(payload))
         except json.JSONDecodeError as exc:
             raise ExtractionError(
                 f"Malformed JSON in Kinesis record {record.get('SequenceNumber')}: {exc}"

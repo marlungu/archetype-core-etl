@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import uuid
 from copy import deepcopy
-
-import pytest
 
 from archetype_core_etl.transform.quality_gate import GateResult, QualityGate
 
@@ -33,9 +30,7 @@ class TestQualityGateFail:
         result = gate.validate(batch)
         assert result.passed is False
         assert result.failed >= 1
-        agency_failures = [
-            d for d in result.failure_details if d["column"] == "agency"
-        ]
+        agency_failures = [d for d in result.failure_details if d["column"] == "agency"]
         assert len(agency_failures) == 1
         assert "NASA" in agency_failures[0]["unexpected_values"]
 
@@ -45,9 +40,7 @@ class TestQualityGateFail:
         gate = QualityGate()
         result = gate.validate(batch)
         assert result.passed is False
-        pages_failures = [
-            d for d in result.failure_details if d["column"] == "pages"
-        ]
+        pages_failures = [d for d in result.failure_details if d["column"] == "pages"]
         assert len(pages_failures) == 1
         assert pages_failures[0]["unexpected_count"] >= 1
 
@@ -57,9 +50,7 @@ class TestQualityGateFail:
         gate = QualityGate()
         result = gate.validate(batch)
         assert result.passed is False
-        rid_failures = [
-            d for d in result.failure_details if d["column"] == "record_id"
-        ]
+        rid_failures = [d for d in result.failure_details if d["column"] == "record_id"]
         assert len(rid_failures) == 1
 
     def test_short_document_text_fails(self, valid_record_batch):
@@ -68,7 +59,5 @@ class TestQualityGateFail:
         gate = QualityGate()
         result = gate.validate(batch)
         assert result.passed is False
-        text_failures = [
-            d for d in result.failure_details if d["column"] == "document_text"
-        ]
+        text_failures = [d for d in result.failure_details if d["column"] == "document_text"]
         assert len(text_failures) == 1

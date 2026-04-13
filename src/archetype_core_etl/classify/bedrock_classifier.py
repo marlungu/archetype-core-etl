@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from archetype_core_etl.classify.cost_tracker import CostTracker
@@ -39,9 +39,7 @@ _REQUIRED_FIELDS = (
 )
 
 _ALLOWED_RISK_TIERS: frozenset[str] = frozenset({"low", "medium", "high"})
-_ALLOWED_ALIGNMENTS: frozenset[str] = frozenset(
-    {"aligned", "partial", "non_compliant"}
-)
+_ALLOWED_ALIGNMENTS: frozenset[str] = frozenset({"aligned", "partial", "non_compliant"})
 
 _SYSTEM_PROMPT = (
     "You are a federal compliance analyst. Evaluate the supplied document "
@@ -218,9 +216,7 @@ class BedrockClassifier:
                 f"Model returned non-JSON for record {record.record_id}: {exc}"
             ) from exc
         if not isinstance(payload, dict):
-            raise ClassificationError(
-                f"Model JSON for record {record.record_id} is not an object"
-            )
+            raise ClassificationError(f"Model JSON for record {record.record_id} is not an object")
         missing = [f for f in _REQUIRED_FIELDS if f not in payload]
         if missing:
             raise ClassificationError(
@@ -267,7 +263,7 @@ class BedrockClassifier:
             reasoning=str(payload["reasoning"]),
             tokens_used=input_tokens + output_tokens,
             model_id=self._model_id,
-            classified_at=datetime.now(timezone.utc),
+            classified_at=datetime.now(UTC),
         )
 
 

@@ -10,10 +10,9 @@ Postgres). All configuration is sourced from
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from airflow.decorators import dag, task
-
 from dags.common.dag_defaults import default_args
 
 
@@ -37,8 +36,7 @@ def streaming_pipeline() -> None:
         stream_name = settings.aws.kinesis_stream_name
         if not stream_name:
             raise RuntimeError(
-                "ARCHETYPE_AWS_KINESIS_STREAM_NAME is not set; "
-                "cannot run the streaming pipeline."
+                "ARCHETYPE_AWS_KINESIS_STREAM_NAME is not set; cannot run the streaming pipeline."
             )
 
         reader = KinesisReader(stream_name=stream_name)
@@ -87,8 +85,7 @@ def streaming_pipeline() -> None:
                 for cr in results
             ],
             "submitted_at_by_record": {
-                str(r.record_id): r.submitted_at.isoformat()
-                for r in validated
+                str(r.record_id): r.submitted_at.isoformat() for r in validated
             },
         }
 
@@ -96,7 +93,6 @@ def streaming_pipeline() -> None:
     def write_audit(payload: dict) -> None:
         """Persist audit rows to PostgreSQL."""
         from datetime import datetime as dt
-        from datetime import timezone
 
         from archetype_core_etl.classify.bedrock_classifier import ClassificationResult
         from archetype_core_etl.config import get_settings
@@ -121,13 +117,13 @@ def streaming_pipeline() -> None:
                 tokens_used=r["tokens_used"],
                 model_id=r["model_id"],
                 classified_at=dt.fromisoformat(r["classified_at"]).replace(
-                    tzinfo=timezone.utc,
+                    tzinfo=UTC,
                 ),
             )
             for r in payload["results"]
         ]
         submitted_at_by_record = {
-            k: dt.fromisoformat(v).replace(tzinfo=timezone.utc)
+            k: dt.fromisoformat(v).replace(tzinfo=UTC)
             for k, v in payload["submitted_at_by_record"].items()
         }
 

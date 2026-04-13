@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -22,7 +22,7 @@ class TestFederalDocumentRecordValid:
     def test_optional_fields_default_to_none_or_empty(self):
         minimal = {
             "record_id": str(uuid.uuid4()),
-            "submitted_at": datetime.now(timezone.utc).isoformat(),
+            "submitted_at": datetime.now(UTC).isoformat(),
             "document_type": "notice",
             "agency": "CBP",
             "applicant_id": "B-99999999",

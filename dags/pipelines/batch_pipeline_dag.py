@@ -9,10 +9,9 @@ Airflow's scheduler scan.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from airflow.decorators import dag, task
-
 from dags.common.dag_defaults import default_args
 
 
@@ -89,8 +88,7 @@ def batch_pipeline() -> None:
                 for cr in results
             ],
             "submitted_at_by_record": {
-                str(r.record_id): r.submitted_at.isoformat()
-                for r in validated
+                str(r.record_id): r.submitted_at.isoformat() for r in validated
             },
         }
 
@@ -98,7 +96,6 @@ def batch_pipeline() -> None:
     def write_delta_bronze(payload: dict) -> dict:
         """Write all classification results to the Bronze Delta table."""
         from datetime import datetime as dt
-        from datetime import timezone
 
         from databricks.sdk import WorkspaceClient
 
@@ -112,7 +109,7 @@ def batch_pipeline() -> None:
             workspace_client=ws,
             warehouse_id=settings.databricks.warehouse_id,
             catalog=settings.databricks.catalog,
-            schema=settings.databricks.schema,
+            schema_name=settings.databricks.schema_name,
         )
 
         results = [
@@ -124,9 +121,7 @@ def batch_pipeline() -> None:
                 reasoning=r["reasoning"],
                 tokens_used=r["tokens_used"],
                 model_id=r["model_id"],
-                classified_at=dt.fromisoformat(r["classified_at"]).replace(
-                    tzinfo=timezone.utc
-                ),
+                classified_at=dt.fromisoformat(r["classified_at"]).replace(tzinfo=UTC),
             )
             for r in payload["results"]
         ]
@@ -138,7 +133,6 @@ def batch_pipeline() -> None:
     def write_audit(payload: dict) -> None:
         """Persist audit rows to PostgreSQL."""
         from datetime import datetime as dt
-        from datetime import timezone
 
         from archetype_core_etl.classify.bedrock_classifier import ClassificationResult
         from archetype_core_etl.config import get_settings
@@ -159,14 +153,12 @@ def batch_pipeline() -> None:
                 reasoning=r["reasoning"],
                 tokens_used=r["tokens_used"],
                 model_id=r["model_id"],
-                classified_at=dt.fromisoformat(r["classified_at"]).replace(
-                    tzinfo=timezone.utc
-                ),
+                classified_at=dt.fromisoformat(r["classified_at"]).replace(tzinfo=UTC),
             )
             for r in payload["results"]
         ]
         submitted_at_by_record = {
-            k: dt.fromisoformat(v).replace(tzinfo=timezone.utc)
+            k: dt.fromisoformat(v).replace(tzinfo=UTC)
             for k, v in payload["submitted_at_by_record"].items()
         }
 

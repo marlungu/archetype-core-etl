@@ -98,7 +98,7 @@ class DatabricksSettings(BaseSettings):
     host: str = Field(..., description="Databricks workspace URL.")
     warehouse_id: str = Field(..., description="SQL warehouse ID for statement execution.")
     catalog: str = Field(..., description="Unity Catalog catalog name.")
-    schema: str = Field(default="default", description="Unity Catalog schema name.")
+    schema_name: str = Field(default="default", description="Unity Catalog schema name.")
 
 
 class BedrockSettings(BaseSettings):
@@ -133,5 +133,5 @@ class Settings(BaseSettings):
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     aws: AWSSettings = Field(default_factory=AWSSettings)
     airflow: AirflowSettings = Field(default_factory=AirflowSettings)
-    bedrock: BedrockSettings = Field(default_factory=BedrockSettings)
-    databricks: DatabricksSettings = Field(default_factory=DatabricksSettings)
+    bedrock: BedrockSettings = Field(default_factory=lambda: BedrockSettings())
+    databricks: DatabricksSettings = Field(default_factory=lambda: DatabricksSettings())

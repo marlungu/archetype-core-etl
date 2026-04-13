@@ -15,11 +15,10 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 
-import psycopg2
-from psycopg2 import sql
-from psycopg2.extras import execute_values
+import psycopg2  # type: ignore[import-untyped]
+from psycopg2 import sql  # type: ignore[import-untyped]
+from psycopg2.extras import execute_values  # type: ignore[import-untyped]
 
 from archetype_core_etl.classify.bedrock_classifier import ClassificationResult
 from archetype_core_etl.classify.cost_tracker import DEFAULT_PRICING, ModelPricing
@@ -154,9 +153,7 @@ class AuditWriter:
                 "audit_writer.write_failed",
                 extra={"pipeline_run_id": pipeline_run_id, "rows": len(rows)},
             )
-            raise LoadError(
-                f"Audit write failed for run {pipeline_run_id}: {exc}"
-            ) from exc
+            raise LoadError(f"Audit write failed for run {pipeline_run_id}: {exc}") from exc
 
         logger.info(
             "audit_writer.write.complete",

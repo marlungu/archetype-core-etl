@@ -16,8 +16,8 @@ from collections.abc import Iterator
 from datetime import date
 from typing import Any
 
-import boto3
-from botocore.exceptions import BotoCoreError, ClientError
+import boto3  # type: ignore[import-untyped]
+from botocore.exceptions import BotoCoreError, ClientError  # type: ignore[import-untyped]
 
 from archetype_core_etl.common.exceptions import ExtractionError
 from archetype_core_etl.common.logging import get_logger
@@ -121,9 +121,7 @@ class S3Reader:
                 "s3_reader.list_failed",
                 extra={"bucket": self._bucket, "prefix": prefix},
             )
-            raise ExtractionError(
-                f"Failed to list s3://{self._bucket}/{prefix}: {exc}"
-            ) from exc
+            raise ExtractionError(f"Failed to list s3://{self._bucket}/{prefix}: {exc}") from exc
 
     def _read_object(self, key: str) -> Iterator[dict[str, Any]]:
         try:
@@ -138,9 +136,7 @@ class S3Reader:
                 "s3_reader.get_failed",
                 extra={"bucket": self._bucket, "key": key},
             )
-            raise ExtractionError(
-                f"Failed to read s3://{self._bucket}/{key}: {exc}"
-            ) from exc
+            raise ExtractionError(f"Failed to read s3://{self._bucket}/{key}: {exc}") from exc
         except json.JSONDecodeError as exc:
             logger.exception(
                 "s3_reader.parse_failed",

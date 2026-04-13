@@ -55,9 +55,7 @@ class CostTracker:
     """Running cost accumulator for one classification run."""
 
     model_id: str
-    pricing: dict[str, ModelPricing] = field(
-        default_factory=lambda: dict(DEFAULT_PRICING)
-    )
+    pricing: dict[str, ModelPricing] = field(default_factory=lambda: dict(DEFAULT_PRICING))
     input_tokens: int = 0
     output_tokens: int = 0
     requests: int = 0
@@ -108,4 +106,4 @@ class CostTracker:
         return summary
 
 
-__all__ = ["CostSummary", "CostTracker", "DEFAULT_PRICING", "ModelPricing"]
+__all__ = ["DEFAULT_PRICING", "CostSummary", "CostTracker", "ModelPricing"]

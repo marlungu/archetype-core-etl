@@ -41,16 +41,16 @@ class DeltaWriter:
         workspace_client: Any,
         warehouse_id: str,
         catalog: str,
-        schema: str,
+        schema_name: str,
         bronze_table: str = "classifications_bronze",
         gold_table: str = "classifications_gold",
     ) -> None:
         self._client = workspace_client
         self._warehouse_id = warehouse_id
         self._catalog = catalog
-        self._schema = schema
-        self._bronze_fqn = f"{catalog}.{schema}.{bronze_table}"
-        self._gold_fqn = f"{catalog}.{schema}.{gold_table}"
+        self._schema_name = schema_name
+        self._bronze_fqn = f"{catalog}.{schema_name}.{bronze_table}"
+        self._gold_fqn = f"{catalog}.{schema_name}.{gold_table}"
 
     def write_bronze(self, results: Iterable[ClassificationResult]) -> int:
         """Append every result to the Bronze table."""
@@ -74,9 +74,7 @@ class DeltaWriter:
         )
         return len(results)
 
-    def _insert_one(
-        self, table_fqn: str, result: ClassificationResult, idx: int
-    ) -> None:
+    def _insert_one(self, table_fqn: str, result: ClassificationResult, idx: int) -> None:
         statement = (
             f"INSERT INTO {table_fqn} "
             "(record_id, compliance_score, risk_tier, policy_alignment, "
@@ -85,17 +83,13 @@ class DeltaWriter:
             ":reasoning, :tokens_used, :model_id, :classified_at)"
         )
         parameters = [
-            StatementParameterListItem(
-                name="record_id", value=result.record_id, type="STRING"
-            ),
+            StatementParameterListItem(name="record_id", value=result.record_id, type="STRING"),
             StatementParameterListItem(
                 name="compliance_score",
                 value=str(result.compliance_score),
                 type="DOUBLE",
             ),
-            StatementParameterListItem(
-                name="risk_tier", value=result.risk_tier, type="STRING"
-            ),
+            StatementParameterListItem(name="risk_tier", value=result.risk_tier, type="STRING"),
             StatementParameterListItem(
                 name="policy_alignment",
                 value=result.policy_alignment,
@@ -111,9 +105,7 @@ class DeltaWriter:
                 value=str(int(result.tokens_used)),
                 type="INT",
             ),
-            StatementParameterListItem(
-                name="model_id", value=result.model_id, type="STRING"
-            ),
+            StatementParameterListItem(name="model_id", value=result.model_id, type="STRING"),
             StatementParameterListItem(
                 name="classified_at",
                 value=result.classified_at.isoformat(),
@@ -127,7 +119,7 @@ class DeltaWriter:
                 statement=statement,
                 parameters=parameters,
                 catalog=self._catalog,
-                schema=self._schema,
+                schema=self._schema_name,
                 wait_timeout="30s",
             )
         except Exception as exc:
@@ -135,18 +127,14 @@ class DeltaWriter:
                 "delta_writer.execute_failed",
                 extra={"table": table_fqn, "row_index": idx},
             )
-            raise LoadError(
-                f"Delta append to {table_fqn} failed: {exc}"
-            ) from exc
+            raise LoadError(f"Delta append to {table_fqn} failed: {exc}") from exc
 
         status_state = getattr(getattr(response, "status", None), "state", None)
         if status_state and str(status_state) not in {
             "SUCCEEDED",
             "StatementState.SUCCEEDED",
         }:
-            raise LoadError(
-                f"Delta append to {table_fqn} ended in state {status_state}"
-            )
+            raise LoadError(f"Delta append to {table_fqn} ended in state {status_state}")
 
 
 __all__ = ["DeltaWriter"]

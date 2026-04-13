@@ -6,15 +6,15 @@ from .bedrock_classifier import (
     PolicyAlignment,
     RiskTier,
 )
-from .cost_tracker import CostSummary, CostTracker, DEFAULT_PRICING, ModelPricing
+from .cost_tracker import DEFAULT_PRICING, CostSummary, CostTracker, ModelPricing
 from .rate_limiter import RateLimiter
 
 __all__ = [
+    "DEFAULT_PRICING",
     "BedrockClassifier",
     "ClassificationResult",
     "CostSummary",
     "CostTracker",
-    "DEFAULT_PRICING",
     "ModelPricing",
     "PolicyAlignment",
     "RateLimiter",

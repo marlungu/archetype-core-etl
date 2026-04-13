@@ -51,6 +51,9 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
     "pre-commit>=3.8",
+    "boto3-stubs[s3,kinesis,bedrock-runtime]~=1.42",
+    "pandas-stubs~=2.0",
+    "types-psycopg2~=2.9",
 ]
 
 [project.urls]
@@ -90,11 +93,15 @@ select = [
     "S",   # flake8-bandit security checks
 ]
 ignore = [
-    "E501",  # handled by formatter
+    "E501",   # handled by formatter
+    "PLR0913", # allow >5 args in constructors with keyword-only params
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["PLR2004", "S101"]
+"dags/**/*.py" = ["PLC0415", "PLR0915"]  # deferred imports and long DAG functions are intentional
+"src/archetype_core_etl/load/delta_writer.py" = ["S608"]  # table_fqn is internal, values are parameterized
+"src/archetype_core_etl/config/settings.py" = ["PLW0108"]  # lambdas required for mypy forward-ref resolution
 
 [tool.ruff.format]
 quote-style = "double"

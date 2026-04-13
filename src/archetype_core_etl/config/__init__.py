@@ -14,8 +14,8 @@ from .settings import (
     AirflowSettings,
     AWSSettings,
     BedrockSettings,
-    DatabricksSettings,
     DatabaseSettings,
+    DatabricksSettings,
     Settings,
 )
 
@@ -23,8 +23,8 @@ __all__ = [
     "AWSSettings",
     "AirflowSettings",
     "BedrockSettings",
-    "DatabricksSettings",
     "DatabaseSettings",
+    "DatabricksSettings",
     "Settings",
     "get_settings",
 ]

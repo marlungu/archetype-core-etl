@@ -19,29 +19,16 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any, cast
 
-import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
+from archetype_core_etl.common.aws import build_boto3_client
 from archetype_core_etl.common.exceptions import ExtractionError
 from archetype_core_etl.common.logging import get_logger
-from archetype_core_etl.config import get_settings
 
 logger = get_logger(__name__)
 
 _DEFAULT_BATCH_SIZE = 500
 _DEFAULT_ITERATOR_TYPE = "TRIM_HORIZON"
-
-
-def _build_client() -> Any:
-    """Construct a Kinesis client from the active application settings."""
-    settings = get_settings()
-    kwargs: dict[str, Any] = {"region_name": settings.aws.region}
-    if settings.aws.endpoint_url:
-        kwargs["endpoint_url"] = settings.aws.endpoint_url
-    if settings.aws.access_key_id and settings.aws.secret_access_key:
-        kwargs["aws_access_key_id"] = settings.aws.access_key_id.get_secret_value()
-        kwargs["aws_secret_access_key"] = settings.aws.secret_access_key.get_secret_value()
-    return boto3.client("kinesis", **kwargs)
 
 
 @dataclass
@@ -71,7 +58,7 @@ class KinesisReader:
         self._stream_name = stream_name
         self._batch_size = batch_size
         self._checkpoint = checkpoint or KinesisCheckpoint()
-        self._client = client or _build_client()
+        self._client = client or build_boto3_client("kinesis")
 
     @property
     def checkpoint(self) -> KinesisCheckpoint:

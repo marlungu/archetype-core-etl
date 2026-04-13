@@ -14,7 +14,7 @@ def valid_record_dict() -> dict:
     return {
         "record_id": str(uuid.uuid4()),
         "submitted_at": datetime(2025, 6, 15, 10, 30, 0, tzinfo=UTC).isoformat(),
-        "document_type": "application",
+        "document_type": "I-130 Petition",
         "agency": "USCIS",
         "applicant_id": "A-12345678",
         "case_status": "pending",

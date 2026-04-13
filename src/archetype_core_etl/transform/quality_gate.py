@@ -33,12 +33,16 @@ logger = get_logger(__name__)
 _ALLOWED_AGENCIES: list[str] = ["USCIS", "CBP", "ICE", "TSA", "FEMA"]
 _ALLOWED_PRIORITY_TIERS: list[str] = ["standard", "expedite", "emergency"]
 _ALLOWED_DOCUMENT_TYPES: list[str] = [
-    "application",
-    "petition",
-    "notice",
-    "decision",
-    "evidence",
-    "correspondence",
+    "I-130 Petition",
+    "I-485 Adjustment",
+    "I-765 EAD",
+    "I-140 Immigrant Petition",
+    "I-20 Student Status",
+    "I-539 Extension",
+    "N-400 Naturalization",
+    "I-90 Green Card Renewal",
+    "I-129 Worker Petition",
+    "I-751 Remove Conditions",
 ]
 
 _SUITE_NAME = "archetype_federal_document_suite"

@@ -142,7 +142,7 @@ def _generate_record(fake: Faker, rng: random.Random) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _write_local(records: list[dict[str, Any]], output_path: str) -> str:
+def _write_local(records: list[dict[str, Any]], output_path: str | None) -> str:
     """Write NDJSON to local disk, partitioned by date."""
     now = datetime.now(tz=timezone.utc)
     partition = now.strftime("%Y/%m/%d")
@@ -162,22 +162,12 @@ def _write_local(records: list[dict[str, Any]], output_path: str) -> str:
 
 def _write_s3(records: list[dict[str, Any]], output_path: str | None) -> str:
     """Write NDJSON to S3, partitioned by date."""
-    import boto3
-
+    from archetype_core_etl.common.aws import build_boto3_client
     from archetype_core_etl.config import get_settings
 
     settings = get_settings()
-    aws = settings.aws
-
-    kwargs: dict[str, Any] = {"region_name": aws.region}
-    if aws.endpoint_url:
-        kwargs["endpoint_url"] = aws.endpoint_url
-    if aws.access_key_id and aws.secret_access_key:
-        kwargs["aws_access_key_id"] = aws.access_key_id.get_secret_value()
-        kwargs["aws_secret_access_key"] = aws.secret_access_key.get_secret_value()
-
-    client = boto3.client("s3", **kwargs)
-    bucket = aws.raw_bucket
+    client = build_boto3_client("s3")
+    bucket = settings.aws.raw_bucket
 
     now = datetime.now(tz=timezone.utc)
     partition = now.strftime("%Y/%m/%d")

@@ -168,3 +168,4 @@ data/external/*
 # ---------- Docs build ----------
 docs/_build/
 site/
+docker-compose.override.yml

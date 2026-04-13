@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# ⚠  DEPRECATED — This script is no longer used by docker-compose.yml.
+# The airflow-init service now runs an inline command and the audit
+# database is created by scripts/init-db.sql (mounted into Postgres at
+# /docker-entrypoint-initdb.d/).  This file is kept for reference only
+# and will be removed in a future release.
+#
 # -----------------------------------------------------------------------------
 # archetype-core-etl — first-run initialization for the Airflow 3.x stack.
 #

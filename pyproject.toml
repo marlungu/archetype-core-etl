@@ -42,7 +42,7 @@ airflow = [
     "apache-airflow-providers-fab~=1.0",
 ]
 databricks = [
-    # databricks-sdk, databricks-connect added in later commits.
+    # databricks-connect added when Databricks Connect support is needed.
 ]
 dev = [
     "pytest>=8.0",

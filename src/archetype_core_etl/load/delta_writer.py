@@ -12,6 +12,9 @@ target tables must exist ahead of time (managed by Terraform). The
 writer verifies table existence on first use and raises
 :class:`LoadError` on any failure so the orchestrator can route the
 exception to the audit log.
+
+All external values are passed via the Statement Execution API's native
+``parameters`` field — no string interpolation of user data touches SQL.
 """
 
 from __future__ import annotations
@@ -19,6 +22,8 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable
 from typing import Any
+
+from databricks.sdk.service.sql import StatementParameterListItem
 
 from archetype_core_etl.classify.bedrock_classifier import ClassificationResult
 from archetype_core_etl.common.exceptions import LoadError
@@ -60,36 +65,8 @@ class DeltaWriter:
             logger.info("delta_writer.append.empty_batch", extra={"table": table_fqn})
             return 0
 
-        values_clause = ",\n".join(self._row_literal(r) for r in results)
-        statement = (
-            f"INSERT INTO {table_fqn} "
-            "(record_id, compliance_score, risk_tier, policy_alignment, "
-            "reasoning, tokens_used, model_id, classified_at) VALUES\n"
-            f"{values_clause}"
-        )
-
-        try:
-            response = self._client.statement_execution.execute_statement(
-                warehouse_id=self._warehouse_id,
-                statement=statement,
-                catalog=self._catalog,
-                schema=self._schema,
-                wait_timeout="30s",
-            )
-        except Exception as exc:
-            logger.exception(
-                "delta_writer.execute_failed",
-                extra={"table": table_fqn, "rows": len(results)},
-            )
-            raise LoadError(
-                f"Delta append to {table_fqn} failed: {exc}"
-            ) from exc
-
-        status_state = getattr(getattr(response, "status", None), "state", None)
-        if status_state and str(status_state) not in {"SUCCEEDED", "StatementState.SUCCEEDED"}:
-            raise LoadError(
-                f"Delta append to {table_fqn} ended in state {status_state}"
-            )
+        for idx, result in enumerate(results):
+            self._insert_one(table_fqn, result, idx)
 
         logger.info(
             "delta_writer.append.complete",
@@ -97,25 +74,79 @@ class DeltaWriter:
         )
         return len(results)
 
-    @staticmethod
-    def _row_literal(result: ClassificationResult) -> str:
-        """Render one result as a SQL VALUES row using string-literal quoting."""
-        def sql_str(value: str) -> str:
-            escaped = value.replace("'", "''")
-            return f"'{escaped}'"
-
-        return (
-            "("
-            f"{sql_str(result.record_id)}, "
-            f"{result.compliance_score}, "
-            f"{sql_str(result.risk_tier)}, "
-            f"{sql_str(result.policy_alignment)}, "
-            f"{sql_str(json.dumps(result.reasoning))}, "
-            f"{int(result.tokens_used)}, "
-            f"{sql_str(result.model_id)}, "
-            f"TIMESTAMP {sql_str(result.classified_at.isoformat())}"
-            ")"
+    def _insert_one(
+        self, table_fqn: str, result: ClassificationResult, idx: int
+    ) -> None:
+        statement = (
+            f"INSERT INTO {table_fqn} "
+            "(record_id, compliance_score, risk_tier, policy_alignment, "
+            "reasoning, tokens_used, model_id, classified_at) VALUES "
+            "(:record_id, :compliance_score, :risk_tier, :policy_alignment, "
+            ":reasoning, :tokens_used, :model_id, :classified_at)"
         )
+        parameters = [
+            StatementParameterListItem(
+                name="record_id", value=result.record_id, type="STRING"
+            ),
+            StatementParameterListItem(
+                name="compliance_score",
+                value=str(result.compliance_score),
+                type="DOUBLE",
+            ),
+            StatementParameterListItem(
+                name="risk_tier", value=result.risk_tier, type="STRING"
+            ),
+            StatementParameterListItem(
+                name="policy_alignment",
+                value=result.policy_alignment,
+                type="STRING",
+            ),
+            StatementParameterListItem(
+                name="reasoning",
+                value=json.dumps(result.reasoning),
+                type="STRING",
+            ),
+            StatementParameterListItem(
+                name="tokens_used",
+                value=str(int(result.tokens_used)),
+                type="INT",
+            ),
+            StatementParameterListItem(
+                name="model_id", value=result.model_id, type="STRING"
+            ),
+            StatementParameterListItem(
+                name="classified_at",
+                value=result.classified_at.isoformat(),
+                type="TIMESTAMP",
+            ),
+        ]
+
+        try:
+            response = self._client.statement_execution.execute_statement(
+                warehouse_id=self._warehouse_id,
+                statement=statement,
+                parameters=parameters,
+                catalog=self._catalog,
+                schema=self._schema,
+                wait_timeout="30s",
+            )
+        except Exception as exc:
+            logger.exception(
+                "delta_writer.execute_failed",
+                extra={"table": table_fqn, "row_index": idx},
+            )
+            raise LoadError(
+                f"Delta append to {table_fqn} failed: {exc}"
+            ) from exc
+
+        status_state = getattr(getattr(response, "status", None), "state", None)
+        if status_state and str(status_state) not in {
+            "SUCCEEDED",
+            "StatementState.SUCCEEDED",
+        }:
+            raise LoadError(
+                f"Delta append to {table_fqn} ended in state {status_state}"
+            )
 
 
 __all__ = ["DeltaWriter"]

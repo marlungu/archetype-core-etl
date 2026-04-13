@@ -52,23 +52,86 @@ archetype-core-etl/
 
 ## Local Development
 
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine + Compose plugin)
+- Python 3.12+
+- Make
+
+### Quickstart
+
 ```bash
-# 1. Configure environment
-cp .env.example .env
-# Fill in all ARCHETYPE_* values — no secrets have hardcoded defaults.
-
-# 2. Start the stack
-docker compose up -d
-
-# 3. Verify Airflow health
-curl -s http://localhost:8080/api/v2/monitor/health | python -m json.tool
-
-# 4. Run tests
-pip install -e ".[dev]"
-pytest
+make demo
 ```
 
-The init container runs `airflow db migrate` and creates the admin user from `AIRFLOW_ADMIN_USERNAME` / `AIRFLOW_ADMIN_PASSWORD` in `.env`.
+This single command will:
+1. Generate a `.env` file with auto-generated secrets
+2. Start Postgres, Redis, LocalStack, and the full Airflow stack (webserver, scheduler, triggerer, Celery worker)
+3. Run DB migrations and create the Airflow admin user
+4. Create S3 buckets in LocalStack and seed 500 synthetic test records
+5. Print the Airflow UI URL and login credentials
+
+### Step-by-step setup
+
+```bash
+# 1. Generate .env with auto-generated secrets
+make setup
+
+# 2. Start all services and seed data
+make up
+
+# 3. Open Airflow UI
+open http://localhost:8080    # admin / admin
+
+# 4. Generate more test data
+make generate
+
+# 5. Run tests
+make test
+
+# 6. View service logs
+make logs
+
+# 7. Tear down (preserves data volumes)
+make down
+
+# 8. Full cleanup (removes volumes and .env)
+make clean
+```
+
+### Available make targets
+
+Run `make help` to see all targets:
+
+| Target | Description |
+|---|---|
+| `make help` | Show all available targets |
+| `make setup` | Generate .env from template with auto-generated secrets |
+| `make up` | Start all services, wait for healthy, seed LocalStack |
+| `make down` | Stop all services |
+| `make restart` | Stop and restart all services |
+| `make demo` | Full setup + start (runs setup then up) |
+| `make test` | Install dev dependencies and run pytest |
+| `make lint` | Run ruff linter |
+| `make typecheck` | Run mypy type checker |
+| `make generate` | Generate 1000 synthetic test records |
+| `make logs` | Tail service logs |
+| `make ps` | Show running services |
+| `make clean` | Remove all containers, volumes, and .env |
+
+### DAG processor (Airflow 3.x)
+
+Airflow 3.x requires a separate DAG processor service for the UI to detect DAGs. The base `docker-compose.yml` does not include it — create a `docker-compose.override.yml` with the DAG processor service and bind mounts for `dags/` and `src/`:
+
+```bash
+cp docker-compose.override.yml.example docker-compose.override.yml
+```
+
+Then edit it to add the DAG processor and PYTHONPATH. See the project wiki for the full override template.
+
+### Exposing services on the host
+
+By default, only the Airflow UI (port 8080) is exposed. To access Postgres, Redis, or LocalStack directly from your machine, uncomment the relevant port sections in `docker-compose.override.yml`.
 
 ## Data Generator
 

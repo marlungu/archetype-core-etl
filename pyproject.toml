@@ -23,13 +23,13 @@ classifiers = [
 ]
 dependencies = [
     "pydantic~=2.13",
-    "pydantic-settings~=2.13",
+    "pydantic-settings~=2.14",
     "python-dotenv~=1.2",
     "python-json-logger~=4.1",
     "boto3~=1.42",
-    "great-expectations~=1.16",
+    "great-expectations~=1.17",
     "pandas~=3.0",
-    "databricks-sdk~=0.102",
+    "databricks-sdk~=0.105",
     "psycopg2-binary~=2.9",
     "faker~=40.0",
 ]

@@ -20,7 +20,8 @@ terraform {
 }
 
 provider "aws" {
-  region = var.region
+  region  = var.region
+  profile = "archetype"
 
   default_tags {
     tags = {
@@ -33,4 +34,24 @@ provider "aws" {
 
 provider "databricks" {
   host = var.databricks_host
+}
+
+module "s3" {
+  source       = "../../modules/s3"
+  project_name = var.project_name
+  environment  = var.environment
+}
+
+data "aws_caller_identity" "current" {}
+
+module "iam" {
+  source               = "../../modules/iam"
+  project_name         = var.project_name
+  environment          = var.environment
+  region               = var.region
+  account_id           = data.aws_caller_identity.current.account_id
+  raw_bucket_arn       = module.s3.raw_bucket_arn
+  processed_bucket_arn = module.s3.processed_bucket_arn
+  audit_bucket_arn     = module.s3.audit_bucket_arn
+  dags_bucket_arn      = module.s3.dags_bucket_arn
 }

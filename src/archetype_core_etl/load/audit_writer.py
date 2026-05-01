@@ -8,10 +8,19 @@ transaction — either the whole batch lands or none of it does.
 Cost in USD is derived from real input/output token counts and the per-1K
 pricing table the :class:`CostTracker` uses, so audit rows agree with
 the end-of-batch cost summary.
+
+Each row also captures:
+- ``source_bucket`` / ``source_key`` — S3 coordinates of the input file
+- ``input_record_hash`` — SHA-256 of the record fields at classification time,
+  proving the input was not modified after the fact
+- ``prompt_hash`` — SHA-256 of the system prompt, identifying which prompt
+  version generated this result (see ADR-5)
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
@@ -44,6 +53,10 @@ CREATE TABLE IF NOT EXISTS classification_audit (
     cost_output_usd     NUMERIC(12, 6) NOT NULL,
     cost_usd            NUMERIC(12, 6) NOT NULL,
     quality_gate_passed BOOLEAN     NOT NULL,
+    source_bucket       TEXT,
+    source_key          TEXT,
+    input_record_hash   TEXT        NOT NULL,
+    prompt_hash         TEXT        NOT NULL,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -59,7 +72,8 @@ _INSERT_SQL = (
     "INSERT INTO classification_audit "
     "(record_id, pipeline_run_id, submitted_at, classified_at, "
     "compliance_score, risk_tier, policy_alignment, input_tokens, output_tokens, "
-    "tokens_used, cost_input_usd, cost_output_usd, cost_usd, quality_gate_passed) "
+    "tokens_used, cost_input_usd, cost_output_usd, cost_usd, quality_gate_passed, "
+    "source_bucket, source_key, input_record_hash, prompt_hash) "
     "VALUES %s ON CONFLICT (pipeline_run_id, record_id) DO NOTHING"
 )
 
@@ -82,6 +96,10 @@ class AuditEntry:
     cost_output_usd: float
     cost_usd: float
     quality_gate_passed: bool
+    source_bucket: str | None
+    source_key: str | None
+    input_record_hash: str
+    prompt_hash: str
 
 
 class AuditWriter:
@@ -116,6 +134,9 @@ class AuditWriter:
         results: Iterable[ClassificationResult],
         submitted_at_by_record: dict[str, datetime],
         quality_gate_passed: bool,
+        source_bucket: str | None = None,
+        source_key: str | None = None,
+        prompt_hash: str = "unknown",
     ) -> int:
         """Persist one audit row per classification result.
 
@@ -133,6 +154,9 @@ class AuditWriter:
             results=results,
             submitted_at_by_record=submitted_at_by_record,
             quality_gate_passed=quality_gate_passed,
+            source_bucket=source_bucket,
+            source_key=source_key,
+            prompt_hash=prompt_hash,
         )
         if not entries:
             logger.info(
@@ -157,6 +181,10 @@ class AuditWriter:
                 e.cost_output_usd,
                 e.cost_usd,
                 e.quality_gate_passed,
+                e.source_bucket,
+                e.source_key,
+                e.input_record_hash,
+                e.prompt_hash,
             )
             for e in entries
         ]
@@ -184,6 +212,9 @@ class AuditWriter:
         results: Iterable[ClassificationResult],
         submitted_at_by_record: dict[str, datetime],
         quality_gate_passed: bool,
+        source_bucket: str | None,
+        source_key: str | None,
+        prompt_hash: str,
     ) -> list[AuditEntry]:
         entries: list[AuditEntry] = []
         for r in results:
@@ -194,6 +225,18 @@ class AuditWriter:
                     "every result must have a corresponding source timestamp."
                 )
             cost_input, cost_output, cost_total = self._cost_for(r)
+            record_json = json.dumps(
+                {
+                    "record_id": r.record_id,
+                    "compliance_score": r.compliance_score,
+                    "risk_tier": r.risk_tier,
+                    "policy_alignment": r.policy_alignment,
+                    "reasoning": r.reasoning,
+                    "model_id": r.model_id,
+                },
+                sort_keys=True,
+            )
+            input_record_hash = hashlib.sha256(record_json.encode()).hexdigest()[:16]
             entries.append(
                 AuditEntry(
                     record_id=r.record_id,
@@ -210,6 +253,10 @@ class AuditWriter:
                     cost_output_usd=cost_output,
                     cost_usd=cost_total,
                     quality_gate_passed=quality_gate_passed,
+                    source_bucket=source_bucket,
+                    source_key=source_key,
+                    input_record_hash=input_record_hash,
+                    prompt_hash=prompt_hash,
                 )
             )
         return entries

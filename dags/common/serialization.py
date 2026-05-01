@@ -17,10 +17,12 @@ def serialize_classification_payload(
     validated_records: list[FederalDocumentRecord],
     *,
     pipeline_run_id: str,
+    prompt_hash: str,
 ) -> dict:
     """Serialize classification results and source timestamps for XCom transport."""
     return {
         "pipeline_run_id": pipeline_run_id,
+        "prompt_hash": prompt_hash,
         "results": [
             {
                 "record_id": cr.record_id,
@@ -44,9 +46,10 @@ def serialize_classification_payload(
 
 def deserialize_classification_payload(
     payload: dict,
-) -> tuple[list[ClassificationResult], dict[str, datetime], str]:
-    """Reconstruct ClassificationResult list, submitted_at map, and pipeline_run_id."""
+) -> tuple[list[ClassificationResult], dict[str, datetime], str, str]:
+    """Reconstruct ClassificationResult list, submitted_at map, pipeline_run_id, and prompt_hash."""
     pipeline_run_id: str = payload["pipeline_run_id"]
+    prompt_hash: str = payload.get("prompt_hash", "unknown")
     results = [
         ClassificationResult(
             record_id=r["record_id"],
@@ -66,4 +69,4 @@ def deserialize_classification_payload(
         k: datetime.fromisoformat(v).replace(tzinfo=UTC)
         for k, v in payload["submitted_at_by_record"].items()
     }
-    return results, submitted_at_by_record, pipeline_run_id
+    return results, submitted_at_by_record, pipeline_run_id, prompt_hash

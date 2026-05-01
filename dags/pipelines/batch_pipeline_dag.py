@@ -86,8 +86,11 @@ def batch_pipeline() -> None:
 
         validated = [normalize_record(r) for r in records]
         results = classifier.classify_batch(validated)
+        prompt_hash = BedrockClassifier.prompt_hash()
 
-        return serialize_classification_payload(results, validated, pipeline_run_id=run_id)
+        return serialize_classification_payload(
+            results, validated, pipeline_run_id=run_id, prompt_hash=prompt_hash
+        )
 
     @task()
     def write_delta_bronze(payload: dict, run_id: str) -> dict:
@@ -110,7 +113,7 @@ def batch_pipeline() -> None:
             schema_name=settings.databricks.schema_name,
         )
 
-        results, _, _ = deserialize_classification_payload(payload)
+        results, _, _, _ = deserialize_classification_payload(payload)
         writer.write_bronze(results, pipeline_run_id=run_id)
         return payload
 
@@ -130,12 +133,17 @@ def batch_pipeline() -> None:
             dsn=settings.database.audit_url.get_secret_value(),
         )
 
-        results, submitted_at_by_record, _ = deserialize_classification_payload(payload)
+        results, submitted_at_by_record, _, prompt_hash = deserialize_classification_payload(
+            payload
+        )
         audit.write(
             pipeline_run_id=run_id,
             results=results,
             submitted_at_by_record=submitted_at_by_record,
             quality_gate_passed=True,
+            source_bucket=settings.aws.raw_bucket,
+            source_key="federal-documents/",
+            prompt_hash=prompt_hash,
         )
 
     # Chain: ingest → gate → classify → bronze → audit

@@ -177,6 +177,15 @@ Airflow 3.x's built-in `SimpleAuthManager` generates random passwords on startup
 
 The Delta Lake writer originally constructed SQL `VALUES` clauses via Python string formatting with manual single-quote escaping. This was replaced with the Statement Execution API's native `parameters` field, which passes all external values as typed parameters (`:param_name` syntax). This eliminates SQL injection risk without relying on application-level escaping.
 
+### ADR-5: Audit trail hashing for evidence integrity
+
+Every audit entry includes an `input_record_hash` (SHA-256 of the input record) and a `prompt_hash` (SHA-256 of the system prompt). This provides cryptographic proof that:
+- The input record was not modified after classification
+- The exact prompt version that generated the result can be identified
+- Changes to the prompt are detectable across pipeline runs
+
+This is a common pattern in AI governance systems where regulatory compliance requires evidence preservation.
+
 ## License
 
 Proprietary

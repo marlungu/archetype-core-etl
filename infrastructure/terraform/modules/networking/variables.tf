@@ -18,3 +18,9 @@ variable "vpc_cidr" {
   type        = string
   default     = "10.0.0.0/16"
 }
+
+variable "enable_vpc_endpoints" {
+  description = "Create VPC endpoints to reduce NAT traffic. Interface endpoints cost ~$0.01/hr each."
+  type        = bool
+  default     = false
+}

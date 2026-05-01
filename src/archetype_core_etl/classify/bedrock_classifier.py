@@ -15,6 +15,7 @@ can route the failure to the audit log.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -269,6 +270,16 @@ class BedrockClassifier:
             model_id=self._model_id,
             classified_at=datetime.now(UTC),
         )
+
+    @staticmethod
+    def prompt_hash() -> str:
+        """SHA-256 of the system prompt (first 16 hex chars).
+
+        Records which prompt version generated each result without storing
+        the full prompt text. A change in the system prompt produces a
+        different hash, making version drift detectable in the audit trail.
+        """
+        return hashlib.sha256(_SYSTEM_PROMPT.encode()).hexdigest()[:16]
 
 
 __all__ = [

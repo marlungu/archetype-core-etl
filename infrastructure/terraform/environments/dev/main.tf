@@ -61,6 +61,8 @@ module "networking" {
   project_name = var.project_name
   environment  = var.environment
   region       = var.region
+  # Set to true in production to reduce NAT traffic costs
+  enable_vpc_endpoints = false
 }
 
 module "rds" {

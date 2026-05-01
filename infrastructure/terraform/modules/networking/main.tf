@@ -110,3 +110,66 @@ resource "aws_security_group" "mwaa" {
 
   tags = { Name = "${local.prefix}-mwaa-sg" }
 }
+
+# ── VPC Endpoints ─────────────────────────────────────────────────────────────
+# S3 Gateway endpoint — always created (free; no hourly charge for gateway type).
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = aws_vpc.main.id
+  service_name      = "com.amazonaws.${var.region}.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids = [
+    aws_route_table.private.id,
+    aws_route_table.public.id,
+  ]
+  tags = { Name = "${local.prefix}-s3-endpoint" }
+}
+
+# Interface endpoints — optional; set enable_vpc_endpoints = true in production
+# to reduce NAT traffic for logs, STS, Secrets Manager, and SQS (~$0.04/hr total).
+resource "aws_vpc_endpoint" "logs" {
+  count = var.enable_vpc_endpoints ? 1 : 0
+
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.logs"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.mwaa.id]
+  private_dns_enabled = true
+  tags                = { Name = "${local.prefix}-logs-endpoint" }
+}
+
+resource "aws_vpc_endpoint" "sts" {
+  count = var.enable_vpc_endpoints ? 1 : 0
+
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.sts"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.mwaa.id]
+  private_dns_enabled = true
+  tags                = { Name = "${local.prefix}-sts-endpoint" }
+}
+
+resource "aws_vpc_endpoint" "secretsmanager" {
+  count = var.enable_vpc_endpoints ? 1 : 0
+
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.secretsmanager"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.mwaa.id]
+  private_dns_enabled = true
+  tags                = { Name = "${local.prefix}-secretsmanager-endpoint" }
+}
+
+resource "aws_vpc_endpoint" "sqs" {
+  count = var.enable_vpc_endpoints ? 1 : 0
+
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.sqs"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.mwaa.id]
+  private_dns_enabled = true
+  tags                = { Name = "${local.prefix}-sqs-endpoint" }
+}

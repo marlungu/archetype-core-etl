@@ -64,7 +64,12 @@ def streaming_pipeline() -> None:
         logger = get_logger(__name__)
         logger.info("classify_records.start", extra={"pipeline_run_id": run_id})
         if not records:
-            return {"pipeline_run_id": run_id, "results": [], "submitted_at_by_record": {}}
+            return {
+                "pipeline_run_id": run_id,
+                "prompt_hash": "unknown",
+                "results": [],
+                "submitted_at_by_record": {},
+            }
 
         settings = get_settings()
         client = boto3.client(
@@ -80,8 +85,11 @@ def streaming_pipeline() -> None:
 
         validated = [normalize_record(r) for r in records]
         results = classifier.classify_batch(validated)
+        prompt_hash = BedrockClassifier.prompt_hash()
 
-        return serialize_classification_payload(results, validated, pipeline_run_id=run_id)
+        return serialize_classification_payload(
+            results, validated, pipeline_run_id=run_id, prompt_hash=prompt_hash
+        )
 
     @task()
     def write_audit(payload: dict, run_id: str) -> None:
@@ -102,12 +110,17 @@ def streaming_pipeline() -> None:
             dsn=settings.database.audit_url.get_secret_value(),
         )
 
-        results, submitted_at_by_record, _ = deserialize_classification_payload(payload)
+        results, submitted_at_by_record, _, prompt_hash = deserialize_classification_payload(
+            payload
+        )
         audit.write(
             pipeline_run_id=run_id,
             results=results,
             submitted_at_by_record=submitted_at_by_record,
             quality_gate_passed=True,
+            source_bucket=settings.aws.kinesis_stream_name,
+            source_key=None,
+            prompt_hash=prompt_hash,
         )
 
     # Chain: ingest → classify → audit

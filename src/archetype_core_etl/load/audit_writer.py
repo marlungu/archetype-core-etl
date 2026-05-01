@@ -5,9 +5,9 @@ one row in ``archetype_audit.classification_audit``. The writer creates
 the table on first use (idempotent) and wraps every write in a
 transaction — either the whole batch lands or none of it does.
 
-Cost in USD is derived from token usage and the same per-1K pricing
-table the :class:`CostTracker` uses, so audit rows agree with the
-end-of-batch cost summary to the cent.
+Cost in USD is derived from real input/output token counts and the per-1K
+pricing table the :class:`CostTracker` uses, so audit rows agree with
+the end-of-batch cost summary.
 """
 
 from __future__ import annotations
@@ -37,7 +37,11 @@ CREATE TABLE IF NOT EXISTS classification_audit (
     compliance_score    NUMERIC(4, 3) NOT NULL,
     risk_tier           TEXT        NOT NULL,
     policy_alignment    TEXT        NOT NULL,
+    input_tokens        INTEGER     NOT NULL,
+    output_tokens       INTEGER     NOT NULL,
     tokens_used         INTEGER     NOT NULL,
+    cost_input_usd      NUMERIC(12, 6) NOT NULL,
+    cost_output_usd     NUMERIC(12, 6) NOT NULL,
     cost_usd            NUMERIC(12, 6) NOT NULL,
     quality_gate_passed BOOLEAN     NOT NULL,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -47,13 +51,16 @@ CREATE INDEX IF NOT EXISTS idx_classification_audit_run
     ON classification_audit (pipeline_run_id);
 CREATE INDEX IF NOT EXISTS idx_classification_audit_record
     ON classification_audit (record_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_classification_audit_unique
+    ON classification_audit (pipeline_run_id, record_id);
 """
 
 _INSERT_SQL = (
     "INSERT INTO classification_audit "
     "(record_id, pipeline_run_id, submitted_at, classified_at, "
-    "compliance_score, risk_tier, policy_alignment, tokens_used, "
-    "cost_usd, quality_gate_passed) VALUES %s"
+    "compliance_score, risk_tier, policy_alignment, input_tokens, output_tokens, "
+    "tokens_used, cost_input_usd, cost_output_usd, cost_usd, quality_gate_passed) "
+    "VALUES %s ON CONFLICT (pipeline_run_id, record_id) DO NOTHING"
 )
 
 
@@ -68,7 +75,11 @@ class AuditEntry:
     compliance_score: float
     risk_tier: str
     policy_alignment: str
+    input_tokens: int
+    output_tokens: int
     tokens_used: int
+    cost_input_usd: float
+    cost_output_usd: float
     cost_usd: float
     quality_gate_passed: bool
 
@@ -113,7 +124,8 @@ class AuditWriter:
         audit log without re-loading the source record.
 
         The entire batch is committed in a single transaction; a failure
-        on any row rolls the whole batch back.
+        on any row rolls the whole batch back. Duplicate (pipeline_run_id,
+        record_id) pairs are silently ignored so retries are safe.
         """
         self.ensure_table()
         entries = self._build_entries(
@@ -138,7 +150,11 @@ class AuditWriter:
                 e.compliance_score,
                 e.risk_tier,
                 e.policy_alignment,
+                e.input_tokens,
+                e.output_tokens,
                 e.tokens_used,
+                e.cost_input_usd,
+                e.cost_output_usd,
                 e.cost_usd,
                 e.quality_gate_passed,
             )
@@ -177,6 +193,7 @@ class AuditWriter:
                     f"No submitted_at found for record {r.record_id}; "
                     "every result must have a corresponding source timestamp."
                 )
+            cost_input, cost_output, cost_total = self._cost_for(r)
             entries.append(
                 AuditEntry(
                     record_id=r.record_id,
@@ -186,28 +203,30 @@ class AuditWriter:
                     compliance_score=r.compliance_score,
                     risk_tier=r.risk_tier,
                     policy_alignment=r.policy_alignment,
+                    input_tokens=r.input_tokens,
+                    output_tokens=r.output_tokens,
                     tokens_used=r.tokens_used,
-                    cost_usd=self._cost_for(r),
+                    cost_input_usd=cost_input,
+                    cost_output_usd=cost_output,
+                    cost_usd=cost_total,
                     quality_gate_passed=quality_gate_passed,
                 )
             )
         return entries
 
-    def _cost_for(self, result: ClassificationResult) -> float:
-        """Estimate per-record USD cost from total tokens.
+    def _cost_for(self, result: ClassificationResult) -> tuple[float, float, float]:
+        """Return (cost_input_usd, cost_output_usd, cost_total_usd) for a result.
 
-        ``ClassificationResult.tokens_used`` is input+output combined
-        because the classifier only surfaces the total. We approximate
-        the split as 50/50 and apply the blended rate — the exact
-        per-batch cost is still reported by :class:`CostTracker`, which
-        sees the real input/output breakdown. Unknown models record
-        zero so audit writes never fail on a pricing gap.
+        Uses the real input/output token split rather than a 50/50 estimate.
+        Unknown models record zero so audit writes never fail on a pricing gap.
         """
         price = self._pricing.get(result.model_id)
         if price is None:
-            return 0.0
-        blended = 0.5 * (price.input_usd_per_1k + price.output_usd_per_1k)
-        return round((result.tokens_used / 1000.0) * blended, 6)
+            return 0.0, 0.0, 0.0
+        cost_input = round((result.input_tokens / 1000.0) * price.input_usd_per_1k, 6)
+        cost_output = round((result.output_tokens / 1000.0) * price.output_usd_per_1k, 6)
+        cost_total = round(cost_input + cost_output, 6)
+        return cost_input, cost_output, cost_total
 
 
 __all__ = ["AuditEntry", "AuditWriter"]

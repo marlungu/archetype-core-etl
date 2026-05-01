@@ -25,22 +25,32 @@ from dags.common.dag_defaults import default_args
     doc_md=__doc__,
 )
 def batch_pipeline() -> None:
+    # Generate the run ID once here. Every task receives it as a parameter so
+    # retries always use the same ID — no duplicate audit entries on failure.
+    run_id = str(uuid.uuid4())
+
     @task()
-    def ingest_from_s3() -> list[dict]:
+    def ingest_from_s3(run_id: str) -> list[dict]:
         """Read raw NDJSON documents from the raw S3 bucket."""
+        from archetype_core_etl.common.logging import get_logger
         from archetype_core_etl.config import get_settings
         from archetype_core_etl.extract import S3Reader
 
+        logger = get_logger(__name__)
+        logger.info("ingest_from_s3.start", extra={"pipeline_run_id": run_id})
         settings = get_settings()
         reader = S3Reader(bucket=settings.aws.raw_bucket)
         records = list(reader.read_batch(prefix="federal-documents/"))
         return records
 
     @task()
-    def run_quality_gate(records: list[dict]) -> list[dict]:
+    def run_quality_gate(records: list[dict], run_id: str) -> list[dict]:
         """Validate records against the Great Expectations suite."""
+        from archetype_core_etl.common.logging import get_logger
         from archetype_core_etl.transform import QualityGate
 
+        logger = get_logger(__name__)
+        logger.info("run_quality_gate.start", extra={"pipeline_run_id": run_id})
         gate = QualityGate()
         result = gate.validate(records)
         if not result.passed:
@@ -51,14 +61,17 @@ def batch_pipeline() -> None:
         return records
 
     @task()
-    def classify_records(records: list[dict]) -> dict:
+    def classify_records(records: list[dict], run_id: str) -> dict:
         """Normalize, classify via Bedrock, and return serialized results."""
         import boto3
 
         from archetype_core_etl.classify import BedrockClassifier
+        from archetype_core_etl.common.logging import get_logger
         from archetype_core_etl.config import get_settings
         from archetype_core_etl.transform import normalize_record
 
+        logger = get_logger(__name__)
+        logger.info("classify_records.start", extra={"pipeline_run_id": run_id})
         settings = get_settings()
         client = boto3.client(
             "bedrock-runtime",
@@ -74,17 +87,20 @@ def batch_pipeline() -> None:
         validated = [normalize_record(r) for r in records]
         results = classifier.classify_batch(validated)
 
-        return serialize_classification_payload(results, validated)
+        return serialize_classification_payload(results, validated, pipeline_run_id=run_id)
 
     @task()
-    def write_delta_bronze(payload: dict) -> dict:
+    def write_delta_bronze(payload: dict, run_id: str) -> dict:
         """Write all classification results to the Bronze Delta table."""
         from dags.common.serialization import deserialize_classification_payload
         from databricks.sdk import WorkspaceClient
 
+        from archetype_core_etl.common.logging import get_logger
         from archetype_core_etl.config import get_settings
         from archetype_core_etl.load import DeltaWriter
 
+        logger = get_logger(__name__)
+        logger.info("write_delta_bronze.start", extra={"pipeline_run_id": run_id})
         settings = get_settings()
         ws = WorkspaceClient(host=settings.databricks.host)
         writer = DeltaWriter(
@@ -94,37 +110,40 @@ def batch_pipeline() -> None:
             schema_name=settings.databricks.schema_name,
         )
 
-        results, _ = deserialize_classification_payload(payload)
-        writer.write_bronze(results)
+        results, _, _ = deserialize_classification_payload(payload)
+        writer.write_bronze(results, pipeline_run_id=run_id)
         return payload
 
     @task()
-    def write_audit(payload: dict) -> None:
+    def write_audit(payload: dict, run_id: str) -> None:
         """Persist audit rows to PostgreSQL."""
         from dags.common.serialization import deserialize_classification_payload
 
+        from archetype_core_etl.common.logging import get_logger
         from archetype_core_etl.config import get_settings
         from archetype_core_etl.load import AuditWriter
 
+        logger = get_logger(__name__)
+        logger.info("write_audit.start", extra={"pipeline_run_id": run_id})
         settings = get_settings()
         audit = AuditWriter(
             dsn=settings.database.audit_url.get_secret_value(),
         )
 
-        results, submitted_at_by_record = deserialize_classification_payload(payload)
+        results, submitted_at_by_record, _ = deserialize_classification_payload(payload)
         audit.write(
-            pipeline_run_id=str(uuid.uuid4()),
+            pipeline_run_id=run_id,
             results=results,
             submitted_at_by_record=submitted_at_by_record,
             quality_gate_passed=True,
         )
 
     # Chain: ingest → gate → classify → bronze → audit
-    raw = ingest_from_s3()
-    gated = run_quality_gate(raw)
-    classified = classify_records(gated)
-    bronze_done = write_delta_bronze(classified)
-    write_audit(bronze_done)
+    raw = ingest_from_s3(run_id)
+    gated = run_quality_gate(raw, run_id)
+    classified = classify_records(gated, run_id)
+    bronze_done = write_delta_bronze(classified, run_id)
+    write_audit(bronze_done, run_id)
 
 
 batch_pipeline()

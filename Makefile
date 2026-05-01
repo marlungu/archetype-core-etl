@@ -1,4 +1,4 @@
-.PHONY: help setup up down restart logs ps test lint typecheck generate demo clean
+.PHONY: help setup up down restart logs ps test lint typecheck generate demo clean cloud-cost-check cloud-up cloud-down cloud-destroy-all
 .DEFAULT_GOAL := help
 
 # Print all available targets
@@ -16,6 +16,10 @@ help:
 	@printf "  \033[36mlogs\033[0m        Tail service logs\n"
 	@printf "  \033[36mps\033[0m          Show running services\n"
 	@printf "  \033[36mclean\033[0m       Remove all containers, volumes, and .env\n"
+	@printf "  \033[36mcloud-cost-check\033[0m  Check for expensive running AWS resources\n"
+	@printf "  \033[36mcloud-up\033[0m    Deploy cloud infrastructure (costs money)\n"
+	@printf "  \033[36mcloud-down\033[0m  Destroy expensive resources (keeps S3/IAM)\n"
+	@printf "  \033[36mcloud-destroy-all\033[0m  Destroy ALL cloud resources\n"
 	@printf "\n"
 
 # Generate .env from template
@@ -98,3 +102,38 @@ clean:
 	@docker compose down -v --remove-orphans 2>/dev/null || true
 	@rm -f .env
 	@echo "Cleaned up: volumes removed, .env deleted."
+
+# Check for expensive running AWS resources
+cloud-cost-check:
+	@echo "Checking for running AWS resources..."
+	@echo "--- NAT Gateways ---"
+	@aws ec2 describe-nat-gateways --profile archetype --query 'NatGateways[?State==`available`].[NatGatewayId,Tags[?Key==`Name`].Value|[0]]' --output table 2>/dev/null || echo "  None found"
+	@echo "--- RDS Instances ---"
+	@aws rds describe-db-instances --profile archetype --query 'DBInstances[].{ID:DBInstanceIdentifier,Status:DBInstanceStatus}' --output table 2>/dev/null || echo "  None found"
+	@echo "--- MWAA Environments ---"
+	@aws mwaa list-environments --profile archetype --region us-east-1 --output text 2>/dev/null || echo "  None found"
+	@echo "--- Elastic IPs ---"
+	@aws ec2 describe-addresses --profile archetype --query 'Addresses[].{IP:PublicIp,ID:AllocationId}' --output table 2>/dev/null || echo "  None found"
+	@echo "--- Monthly Cost ---"
+	@aws ce get-cost-and-usage --time-period Start=$$(date -u +%Y-%m-01),End=$$(date -u +%Y-%m-%d) --granularity MONTHLY --metrics BlendedCost --profile archetype --query 'ResultsByTime[0].Total.BlendedCost.Amount' --output text 2>/dev/null || echo "  Unable to check"
+
+# Deploy expensive cloud resources (networking, RDS, MWAA)
+cloud-up:
+	@echo "Deploying cloud infrastructure..."
+	@cd infrastructure/terraform/environments/dev && tofu apply
+
+# Destroy expensive cloud resources only
+cloud-down:
+	@echo "Destroying expensive resources..."
+	@cd infrastructure/terraform/environments/dev && tofu destroy -target=module.mwaa -auto-approve 2>/dev/null || true
+	@cd infrastructure/terraform/environments/dev && tofu destroy -target=module.rds -auto-approve 2>/dev/null || true
+	@cd infrastructure/terraform/environments/dev && tofu destroy -target=module.networking -auto-approve 2>/dev/null || true
+	@echo "Verifying teardown..."
+	@$(MAKE) cloud-cost-check
+
+# Destroy ALL cloud resources including free-tier ones
+cloud-destroy-all:
+	@echo "Destroying ALL cloud resources..."
+	@cd infrastructure/terraform/environments/dev && tofu destroy -auto-approve
+	@echo "Verifying teardown..."
+	@$(MAKE) cloud-cost-check

@@ -63,6 +63,8 @@ class ClassificationResult:
     risk_tier: RiskTier
     policy_alignment: PolicyAlignment
     reasoning: str
+    input_tokens: int
+    output_tokens: int
     tokens_used: int
     model_id: str
     classified_at: datetime
@@ -261,6 +263,8 @@ class BedrockClassifier:
             risk_tier=risk_tier,
             policy_alignment=alignment,
             reasoning=str(payload["reasoning"]),
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
             tokens_used=input_tokens + output_tokens,
             model_id=self._model_id,
             classified_at=datetime.now(UTC),

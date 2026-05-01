@@ -15,6 +15,11 @@ exception to the audit log.
 
 All external values are passed via the Statement Execution API's native
 ``parameters`` field — no string interpolation of user data touches SQL.
+
+Writes use MERGE ON (record_id, pipeline_run_id) so retrying a failed
+run never produces duplicate rows. Note: pipeline_run_id and
+input_tokens/output_tokens columns must exist in the Databricks tables
+(add them when creating or migrating the schema).
 """
 
 from __future__ import annotations
@@ -52,21 +57,36 @@ class DeltaWriter:
         self._bronze_fqn = f"{catalog}.{schema_name}.{bronze_table}"
         self._gold_fqn = f"{catalog}.{schema_name}.{gold_table}"
 
-    def write_bronze(self, results: Iterable[ClassificationResult]) -> int:
-        """Append every result to the Bronze table."""
-        return self._append(self._bronze_fqn, list(results))
+    def write_bronze(
+        self,
+        results: Iterable[ClassificationResult],
+        *,
+        pipeline_run_id: str,
+    ) -> int:
+        """Merge every result into the Bronze table."""
+        return self._append(self._bronze_fqn, list(results), pipeline_run_id)
 
-    def write_gold(self, results: Iterable[ClassificationResult]) -> int:
-        """Append only quality-gated results to the Gold table."""
-        return self._append(self._gold_fqn, list(results))
+    def write_gold(
+        self,
+        results: Iterable[ClassificationResult],
+        *,
+        pipeline_run_id: str,
+    ) -> int:
+        """Merge only quality-gated results into the Gold table."""
+        return self._append(self._gold_fqn, list(results), pipeline_run_id)
 
-    def _append(self, table_fqn: str, results: list[ClassificationResult]) -> int:
+    def _append(
+        self,
+        table_fqn: str,
+        results: list[ClassificationResult],
+        pipeline_run_id: str,
+    ) -> int:
         if not results:
             logger.info("delta_writer.append.empty_batch", extra={"table": table_fqn})
             return 0
 
         for idx, result in enumerate(results):
-            self._insert_one(table_fqn, result, idx)
+            self._merge_one(table_fqn, result, pipeline_run_id, idx)
 
         logger.info(
             "delta_writer.append.complete",
@@ -74,16 +94,29 @@ class DeltaWriter:
         )
         return len(results)
 
-    def _insert_one(self, table_fqn: str, result: ClassificationResult, idx: int) -> None:
+    def _merge_one(
+        self,
+        table_fqn: str,
+        result: ClassificationResult,
+        pipeline_run_id: str,
+        idx: int,
+    ) -> None:
         statement = (
-            f"INSERT INTO {table_fqn} "
-            "(record_id, compliance_score, risk_tier, policy_alignment, "
-            "reasoning, tokens_used, model_id, classified_at) VALUES "
-            "(:record_id, :compliance_score, :risk_tier, :policy_alignment, "
-            ":reasoning, :tokens_used, :model_id, :classified_at)"
+            f"MERGE INTO {table_fqn} AS target "
+            "USING (SELECT :record_id AS record_id, :pipeline_run_id AS pipeline_run_id) AS source "
+            "ON target.record_id = source.record_id "
+            "AND target.pipeline_run_id = source.pipeline_run_id "
+            "WHEN NOT MATCHED THEN INSERT "
+            "(record_id, pipeline_run_id, compliance_score, risk_tier, policy_alignment, "
+            "reasoning, input_tokens, output_tokens, tokens_used, model_id, classified_at) VALUES "
+            "(:record_id, :pipeline_run_id, :compliance_score, :risk_tier, :policy_alignment, "
+            ":reasoning, :input_tokens, :output_tokens, :tokens_used, :model_id, :classified_at)"
         )
         parameters = [
             StatementParameterListItem(name="record_id", value=result.record_id, type="STRING"),
+            StatementParameterListItem(
+                name="pipeline_run_id", value=pipeline_run_id, type="STRING"
+            ),
             StatementParameterListItem(
                 name="compliance_score",
                 value=str(result.compliance_score),
@@ -99,6 +132,16 @@ class DeltaWriter:
                 name="reasoning",
                 value=json.dumps(result.reasoning),
                 type="STRING",
+            ),
+            StatementParameterListItem(
+                name="input_tokens",
+                value=str(int(result.input_tokens)),
+                type="INT",
+            ),
+            StatementParameterListItem(
+                name="output_tokens",
+                value=str(int(result.output_tokens)),
+                type="INT",
             ),
             StatementParameterListItem(
                 name="tokens_used",
@@ -127,14 +170,14 @@ class DeltaWriter:
                 "delta_writer.execute_failed",
                 extra={"table": table_fqn, "row_index": idx},
             )
-            raise LoadError(f"Delta append to {table_fqn} failed: {exc}") from exc
+            raise LoadError(f"Delta merge into {table_fqn} failed: {exc}") from exc
 
         status_state = getattr(getattr(response, "status", None), "state", None)
         if status_state and str(status_state) not in {
             "SUCCEEDED",
             "StatementState.SUCCEEDED",
         }:
-            raise LoadError(f"Delta append to {table_fqn} ended in state {status_state}")
+            raise LoadError(f"Delta merge into {table_fqn} ended in state {status_state}")
 
 
 __all__ = ["DeltaWriter"]

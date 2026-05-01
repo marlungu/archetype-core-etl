@@ -26,12 +26,18 @@ from dags.common.dag_defaults import default_args
     doc_md=__doc__,
 )
 def streaming_pipeline() -> None:
+    # Generate the run ID once here so all tasks in this run share the same ID.
+    run_id = str(uuid.uuid4())
+
     @task()
-    def ingest_from_kinesis() -> list[dict]:
+    def ingest_from_kinesis(run_id: str) -> list[dict]:
         """Read batches from Kinesis and flatten into a single list of dicts."""
+        from archetype_core_etl.common.logging import get_logger
         from archetype_core_etl.config import get_settings
         from archetype_core_etl.extract import KinesisReader
 
+        logger = get_logger(__name__)
+        logger.info("ingest_from_kinesis.start", extra={"pipeline_run_id": run_id})
         settings = get_settings()
         stream_name = settings.aws.kinesis_stream_name
         if not stream_name:
@@ -46,16 +52,19 @@ def streaming_pipeline() -> None:
         return records
 
     @task()
-    def classify_records(records: list[dict]) -> dict:
+    def classify_records(records: list[dict], run_id: str) -> dict:
         """Normalize, classify via Bedrock, and return serialized results."""
         import boto3
 
         from archetype_core_etl.classify import BedrockClassifier
+        from archetype_core_etl.common.logging import get_logger
         from archetype_core_etl.config import get_settings
         from archetype_core_etl.transform import normalize_record
 
+        logger = get_logger(__name__)
+        logger.info("classify_records.start", extra={"pipeline_run_id": run_id})
         if not records:
-            return {"results": [], "submitted_at_by_record": {}}
+            return {"pipeline_run_id": run_id, "results": [], "submitted_at_by_record": {}}
 
         settings = get_settings()
         client = boto3.client(
@@ -72,16 +81,19 @@ def streaming_pipeline() -> None:
         validated = [normalize_record(r) for r in records]
         results = classifier.classify_batch(validated)
 
-        return serialize_classification_payload(results, validated)
+        return serialize_classification_payload(results, validated, pipeline_run_id=run_id)
 
     @task()
-    def write_audit(payload: dict) -> None:
+    def write_audit(payload: dict, run_id: str) -> None:
         """Persist audit rows to PostgreSQL."""
         from dags.common.serialization import deserialize_classification_payload
 
+        from archetype_core_etl.common.logging import get_logger
         from archetype_core_etl.config import get_settings
         from archetype_core_etl.load import AuditWriter
 
+        logger = get_logger(__name__)
+        logger.info("write_audit.start", extra={"pipeline_run_id": run_id})
         if not payload["results"]:
             return
 
@@ -90,18 +102,18 @@ def streaming_pipeline() -> None:
             dsn=settings.database.audit_url.get_secret_value(),
         )
 
-        results, submitted_at_by_record = deserialize_classification_payload(payload)
+        results, submitted_at_by_record, _ = deserialize_classification_payload(payload)
         audit.write(
-            pipeline_run_id=str(uuid.uuid4()),
+            pipeline_run_id=run_id,
             results=results,
             submitted_at_by_record=submitted_at_by_record,
             quality_gate_passed=True,
         )
 
     # Chain: ingest → classify → audit
-    raw = ingest_from_kinesis()
-    classified = classify_records(raw)
-    write_audit(classified)
+    raw = ingest_from_kinesis(run_id)
+    classified = classify_records(raw, run_id)
+    write_audit(classified, run_id)
 
 
 streaming_pipeline()

@@ -9,7 +9,6 @@ Postgres). All configuration is sourced from
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
 
 from airflow.decorators import dag, task
@@ -26,8 +25,20 @@ from dags.common.dag_defaults import default_args
     doc_md=__doc__,
 )
 def streaming_pipeline() -> None:
-    # Generate the run ID once here so all tasks in this run share the same ID.
-    run_id = str(uuid.uuid4())
+    @task()
+    def generate_run_id(**context) -> str:
+        """Return the Airflow dag_run.run_id, falling back to a UUID.
+
+        Using the Airflow-assigned run ID means Airflow's own retry and
+        back-fill mechanics produce stable, predictable IDs rather than a
+        fresh UUID on every parse of the DAG file.
+        """
+        dag_run = context.get("dag_run")
+        if dag_run and getattr(dag_run, "run_id", None):
+            return str(dag_run.run_id)
+        import uuid
+
+        return str(uuid.uuid4())
 
     @task()
     def ingest_from_kinesis(run_id: str) -> list[dict]:
@@ -70,6 +81,7 @@ def streaming_pipeline() -> None:
                 "prompt_hash": "unknown",
                 "results": [],
                 "submitted_at_by_record": {},
+                "validated_records": [],
             }
 
         settings = get_settings()
@@ -125,8 +137,8 @@ def streaming_pipeline() -> None:
             dsn=settings.database.audit_url.get_secret_value(),
         )
 
-        results, submitted_at_by_record, _, prompt_hash = deserialize_classification_payload(
-            payload
+        results, submitted_at_by_record, _, prompt_hash, input_records = (
+            deserialize_classification_payload(payload)
         )
         audit.write(
             pipeline_run_id=run_id,
@@ -136,9 +148,11 @@ def streaming_pipeline() -> None:
             source_bucket=settings.aws.kinesis_stream_name,
             source_key=None,
             prompt_hash=prompt_hash,
+            input_records=input_records,
         )
 
-    # Chain: ingest → classify → audit
+    # Chain: generate_run_id → ingest → classify → audit
+    run_id = generate_run_id()
     raw = ingest_from_kinesis(run_id)
     classified = classify_records(raw, run_id)
     write_audit(classified, run_id)

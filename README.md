@@ -3,7 +3,7 @@
 Airflow-orchestrated, Databricks-powered ETL platform for processing federal document records.
 
 ![CI](https://github.com/marlungu/archetype-core-etl/actions/workflows/ci.yml/badge.svg?branch=main)
-![python](https://img.shields.io/badge/python-3.11%2B-blue)
+![python](https://img.shields.io/badge/python-3.12%2B-blue)
 
 ## Overview
 
@@ -13,12 +13,13 @@ archetype-core-etl ingests federal document records from S3 and Kinesis, normali
 
 | Technology | Version | Purpose |
 |---|---|---|
-| Python | 3.11+ | Core runtime for extract, transform, classify, and load modules |
+| Python | 3.12+ | Core runtime for extract, transform, classify, and load modules |
 | Apache Airflow | 3.2 | DAG orchestration — batch and streaming pipeline scheduling |
+| Amazon MWAA | 3.2-compatible | Managed Airflow in production — `mw1.small` workers, `PUBLIC_ONLY` endpoint |
 | Amazon Bedrock (Claude Sonnet 4.6) | `us.anthropic.claude-sonnet-4-6` | Compliance classification with structured JSON output |
-| Databricks Delta Lake | SDK ~0.102 | Bronze/Gold table storage via Statement Execution API |
-| PostgreSQL | 16.3 | Audit trail persistence with `execute_values` batch inserts |
-| Great Expectations | 1.16+ (fluent API) | Data quality validation — agency, priority, schema enforcement |
+| Databricks Delta Lake | SDK ~0.105 | Bronze/Gold table storage via Statement Execution API |
+| PostgreSQL | 16.13 | Audit trail persistence with `execute_values` batch inserts |
+| Great Expectations | 1.17+ (fluent API) | Data quality validation — agency, priority, schema enforcement |
 | Terraform | AWS ~5.0 / Databricks ~1.40 | Infrastructure provisioning — S3, IAM, RDS, MWAA, networking |
 | Docker Compose | — | Local development stack — Airflow, Postgres, Redis, LocalStack |
 
@@ -38,7 +39,7 @@ archetype-core-etl/
 │   └── pipelines/       # batch_pipeline_dag.py, streaming_pipeline_dag.py
 ├── infrastructure/
 │   └── terraform/       # versions.tf, environments/dev/, modules/{s3,iam,networking,rds,mwaa}
-├── scripts/             # generate_data.py (synthetic data), docker-entrypoint-init.sh
+├── scripts/             # generate_data.py (synthetic data), update-databricks-tables.sql, docker-entrypoint-init.sh
 ├── tests/
 │   ├── unit/            # Schema, normalizer, quality gate, cost tracker tests
 │   └── integration/     # External system tests (marked slow)

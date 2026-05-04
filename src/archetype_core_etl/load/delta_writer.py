@@ -24,7 +24,6 @@ input_tokens/output_tokens columns must exist in the Databricks tables
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterable
 from typing import Any
 
@@ -130,7 +129,7 @@ class DeltaWriter:
             ),
             StatementParameterListItem(
                 name="reasoning",
-                value=json.dumps(result.reasoning),
+                value=result.reasoning,
                 type="STRING",
             ),
             StatementParameterListItem(

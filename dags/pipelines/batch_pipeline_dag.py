@@ -8,7 +8,6 @@ Airflow's scheduler scan.
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
 
 from airflow.decorators import dag, task
@@ -25,9 +24,20 @@ from dags.common.dag_defaults import default_args
     doc_md=__doc__,
 )
 def batch_pipeline() -> None:
-    # Generate the run ID once here. Every task receives it as a parameter so
-    # retries always use the same ID — no duplicate audit entries on failure.
-    run_id = str(uuid.uuid4())
+    @task()
+    def generate_run_id(**context) -> str:
+        """Return the Airflow dag_run.run_id, falling back to a UUID.
+
+        Using the Airflow-assigned run ID means Airflow's own retry and
+        back-fill mechanics produce stable, predictable IDs rather than a
+        fresh UUID on every parse of the DAG file.
+        """
+        dag_run = context.get("dag_run")
+        if dag_run and getattr(dag_run, "run_id", None):
+            return str(dag_run.run_id)
+        import uuid
+
+        return str(uuid.uuid4())
 
     @task()
     def ingest_from_s3(run_id: str) -> list[dict]:
@@ -141,7 +151,7 @@ def batch_pipeline() -> None:
             schema_name=settings.databricks.schema_name,
         )
 
-        results, _, _, _ = deserialize_classification_payload(payload)
+        results, _, _, _, _ = deserialize_classification_payload(payload)
         writer.write_bronze(results, pipeline_run_id=run_id)
         return payload
 
@@ -161,8 +171,8 @@ def batch_pipeline() -> None:
             dsn=settings.database.audit_url.get_secret_value(),
         )
 
-        results, submitted_at_by_record, _, prompt_hash = deserialize_classification_payload(
-            payload
+        results, submitted_at_by_record, _, prompt_hash, input_records = (
+            deserialize_classification_payload(payload)
         )
         audit.write(
             pipeline_run_id=run_id,
@@ -172,9 +182,11 @@ def batch_pipeline() -> None:
             source_bucket=settings.aws.raw_bucket,
             source_key="federal-documents/",
             prompt_hash=prompt_hash,
+            input_records=input_records,
         )
 
-    # Chain: ingest → gate → classify → bronze → audit
+    # Chain: generate_run_id → ingest → gate → classify → bronze → audit
+    run_id = generate_run_id()
     raw = ingest_from_s3(run_id)
     gated = run_quality_gate(raw, run_id)
     classified = classify_records(gated, run_id)

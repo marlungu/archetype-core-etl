@@ -11,8 +11,8 @@ the end-of-batch cost summary.
 
 Each row also captures:
 - ``source_bucket`` / ``source_key`` — S3 coordinates of the input file
-- ``input_record_hash`` — SHA-256 of the record fields at classification time,
-  proving the input was not modified after the fact
+- ``input_record_hash`` — SHA-256 of the original input record at ingest
+  time, proving the record was not modified before classification
 - ``prompt_hash`` — SHA-256 of the system prompt, identifying which prompt
   version generated this result (see ADR-5)
 """
@@ -24,6 +24,7 @@ import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 import psycopg2
 from psycopg2 import sql
@@ -137,12 +138,18 @@ class AuditWriter:
         source_bucket: str | None = None,
         source_key: str | None = None,
         prompt_hash: str = "unknown",
+        input_records: list[dict[str, Any]] | None = None,
     ) -> int:
         """Persist one audit row per classification result.
 
         ``submitted_at_by_record`` maps ``record_id`` → source ``submitted_at``
         so the caller can carry the original extract timestamp into the
         audit log without re-loading the source record.
+
+        ``input_records`` is the list of original raw record dicts (in the same
+        order as ``results``). When supplied, each row's ``input_record_hash``
+        is computed from the raw ingest data rather than the classification
+        result, giving a true tamper-evident fingerprint of the input.
 
         The entire batch is committed in a single transaction; a failure
         on any row rolls the whole batch back. Duplicate (pipeline_run_id,
@@ -157,6 +164,7 @@ class AuditWriter:
             source_bucket=source_bucket,
             source_key=source_key,
             prompt_hash=prompt_hash,
+            input_records=input_records,
         )
         if not entries:
             logger.info(
@@ -215,9 +223,10 @@ class AuditWriter:
         source_bucket: str | None,
         source_key: str | None,
         prompt_hash: str,
+        input_records: list[dict[str, Any]] | None,
     ) -> list[AuditEntry]:
         entries: list[AuditEntry] = []
-        for r in results:
+        for i, r in enumerate(results):
             submitted_at = submitted_at_by_record.get(r.record_id)
             if submitted_at is None:
                 raise LoadError(
@@ -225,17 +234,13 @@ class AuditWriter:
                     "every result must have a corresponding source timestamp."
                 )
             cost_input, cost_output, cost_total = self._cost_for(r)
-            record_json = json.dumps(
-                {
-                    "record_id": r.record_id,
-                    "compliance_score": r.compliance_score,
-                    "risk_tier": r.risk_tier,
-                    "policy_alignment": r.policy_alignment,
-                    "reasoning": r.reasoning,
-                    "model_id": r.model_id,
-                },
-                sort_keys=True,
-            )
+            # Hash the original input record when available; fall back to record_id
+            # so every row has a non-null fingerprint even on older call sites.
+            if input_records is not None and i < len(input_records):
+                raw = input_records[i]
+            else:
+                raw = {"record_id": r.record_id}
+            record_json = json.dumps(raw, sort_keys=True, default=str)
             input_record_hash = hashlib.sha256(record_json.encode()).hexdigest()[:16]
             entries.append(
                 AuditEntry(

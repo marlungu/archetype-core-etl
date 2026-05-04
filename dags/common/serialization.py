@@ -7,6 +7,7 @@ so both the batch and streaming DAGs share a single implementation.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
 from archetype_core_etl.classify.bedrock_classifier import ClassificationResult
 from archetype_core_etl.extract.schema import FederalDocumentRecord
@@ -19,7 +20,12 @@ def serialize_classification_payload(
     pipeline_run_id: str,
     prompt_hash: str,
 ) -> dict:
-    """Serialize classification results and source timestamps for XCom transport."""
+    """Serialize classification results and source timestamps for XCom transport.
+
+    ``validated_records`` are included as raw dicts so downstream tasks can
+    reconstruct the original input fingerprint (``input_record_hash``) without
+    re-reading S3.
+    """
     return {
         "pipeline_run_id": pipeline_run_id,
         "prompt_hash": prompt_hash,
@@ -41,13 +47,14 @@ def serialize_classification_payload(
         "submitted_at_by_record": {
             str(r.record_id): r.submitted_at.isoformat() for r in validated_records
         },
+        "validated_records": [r.model_dump(mode="json") for r in validated_records],
     }
 
 
 def deserialize_classification_payload(
     payload: dict,
-) -> tuple[list[ClassificationResult], dict[str, datetime], str, str]:
-    """Reconstruct ClassificationResult list, submitted_at map, pipeline_run_id, and prompt_hash."""
+) -> tuple[list[ClassificationResult], dict[str, datetime], str, str, list[dict[str, Any]]]:
+    """Reconstruct ClassificationResult list, submitted_at map, pipeline_run_id, prompt_hash, and input records."""
     pipeline_run_id: str = payload["pipeline_run_id"]
     prompt_hash: str = payload.get("prompt_hash", "unknown")
     results = [
@@ -69,4 +76,5 @@ def deserialize_classification_payload(
         k: datetime.fromisoformat(v).replace(tzinfo=UTC)
         for k, v in payload["submitted_at_by_record"].items()
     }
-    return results, submitted_at_by_record, pipeline_run_id, prompt_hash
+    input_records: list[dict[str, Any]] = payload.get("validated_records", [])
+    return results, submitted_at_by_record, pipeline_run_id, prompt_hash, input_records

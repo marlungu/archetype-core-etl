@@ -46,7 +46,9 @@ def batch_pipeline() -> None:
     @task()
     def run_quality_gate(records: list[dict], run_id: str) -> list[dict]:
         """Validate records against the Great Expectations suite."""
+        from archetype_core_etl.common.dead_letter import DeadLetterWriter
         from archetype_core_etl.common.logging import get_logger
+        from archetype_core_etl.config import get_settings
         from archetype_core_etl.transform import QualityGate
 
         logger = get_logger(__name__)
@@ -54,6 +56,17 @@ def batch_pipeline() -> None:
         gate = QualityGate()
         result = gate.validate(records)
         if not result.passed:
+            settings = get_settings()
+            dead_letter = DeadLetterWriter(bucket=settings.aws.raw_bucket)
+            dead_letter.write(
+                stage="quality_gate",
+                pipeline_run_id=run_id,
+                records=records,
+                error_message=(
+                    f"Quality gate failed: {result.failed}/{result.total} records — "
+                    f"{result.failure_details}"
+                ),
+            )
             raise RuntimeError(
                 f"Quality gate failed: {result.failed}/{result.total} records — "
                 f"{result.failure_details}"
@@ -66,6 +79,7 @@ def batch_pipeline() -> None:
         import boto3
 
         from archetype_core_etl.classify import BedrockClassifier
+        from archetype_core_etl.common.dead_letter import DeadLetterWriter
         from archetype_core_etl.common.logging import get_logger
         from archetype_core_etl.config import get_settings
         from archetype_core_etl.transform import normalize_record
@@ -86,8 +100,22 @@ def batch_pipeline() -> None:
 
         validated = [normalize_record(r) for r in records]
         results = classifier.classify_batch(validated)
-        prompt_hash = BedrockClassifier.prompt_hash()
 
+        # Route failed records to dead letter if any were skipped
+        failed_count = len(validated) - len(results)
+        if failed_count > 0:
+            dead_letter = DeadLetterWriter(bucket=settings.aws.raw_bucket)
+            result_ids = {r.record_id for r in results}
+            failed_records = [r.model_dump() for r in validated if r.record_id not in result_ids]
+            if failed_records:
+                dead_letter.write(
+                    stage="classification",
+                    pipeline_run_id=run_id,
+                    records=failed_records,
+                    error_message=f"{failed_count} records failed classification",
+                )
+
+        prompt_hash = BedrockClassifier.prompt_hash()
         return serialize_classification_payload(
             results, validated, pipeline_run_id=run_id, prompt_hash=prompt_hash
         )

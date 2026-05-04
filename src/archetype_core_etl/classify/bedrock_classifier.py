@@ -15,13 +15,14 @@ can route the failure to the audit log.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal
 
 from archetype_core_etl.classify.cost_tracker import CostTracker
+from archetype_core_etl.classify.prompts import load_prompt
+from archetype_core_etl.classify.prompts import prompt_hash as compute_prompt_hash
 from archetype_core_etl.classify.rate_limiter import RateLimiter
 from archetype_core_etl.common.exceptions import ClassificationError
 from archetype_core_etl.common.logging import get_logger
@@ -41,18 +42,6 @@ _REQUIRED_FIELDS = (
 
 _ALLOWED_RISK_TIERS: frozenset[str] = frozenset({"low", "medium", "high"})
 _ALLOWED_ALIGNMENTS: frozenset[str] = frozenset({"aligned", "partial", "non_compliant"})
-
-_SYSTEM_PROMPT = (
-    "You are a federal compliance analyst. Evaluate the supplied document "
-    "record and respond with a single JSON object and nothing else — no "
-    "prose, no markdown fences, no preamble. The JSON object MUST contain "
-    "exactly these keys:\n"
-    '  "compliance_score" (float between 0.0 and 1.0),\n'
-    '  "risk_tier" (one of "low", "medium", "high"),\n'
-    '  "policy_alignment" (one of "aligned", "partial", "non_compliant"),\n'
-    '  "reasoning" (string, 1-3 sentences).\n'
-    "Do not include any other keys. Do not wrap the JSON in code fences."
-)
 
 
 @dataclass(frozen=True)
@@ -86,6 +75,7 @@ class BedrockClassifier:
         cost_tracker: CostTracker | None = None,
         max_tokens: int = 512,
         temperature: float = 0.0,
+        prompt_version: str = "compliance_v1",
     ) -> None:
         self._client = client
         self._model_id = model_id
@@ -93,10 +83,16 @@ class BedrockClassifier:
         self._cost_tracker = cost_tracker or CostTracker(model_id=model_id)
         self._max_tokens = max_tokens
         self._temperature = temperature
+        self._prompt_version = prompt_version
+        self._system_prompt = load_prompt(prompt_version)
 
     @property
     def cost_tracker(self) -> CostTracker:
         return self._cost_tracker
+
+    @property
+    def prompt_version(self) -> str:
+        return self._prompt_version
 
     def classify_batch(
         self,
@@ -139,7 +135,7 @@ class BedrockClassifier:
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": self._max_tokens,
             "temperature": self._temperature,
-            "system": _SYSTEM_PROMPT,
+            "system": self._system_prompt,
             "messages": [
                 {
                     "role": "user",
@@ -149,7 +145,6 @@ class BedrockClassifier:
         }
 
         if self._rate_limiter is not None:
-            # Rough pre-call estimate: prompt text length plus the output cap.
             estimated = max(len(user_message) // 4, 1) + self._max_tokens
             self._rate_limiter.acquire(estimated)
 
@@ -272,14 +267,14 @@ class BedrockClassifier:
         )
 
     @staticmethod
-    def prompt_hash() -> str:
-        """SHA-256 of the system prompt (first 16 hex chars).
+    def prompt_hash(version: str = "compliance_v1") -> str:
+        """SHA-256 hash (first 16 hex chars) of the active prompt version.
 
-        Records which prompt version generated each result without storing
-        the full prompt text. A change in the system prompt produces a
-        different hash, making version drift detectable in the audit trail.
+        Records which prompt file generated each result. A change in the
+        system prompt produces a different hash, making version drift
+        detectable in the audit trail.
         """
-        return hashlib.sha256(_SYSTEM_PROMPT.encode()).hexdigest()[:16]
+        return compute_prompt_hash(version)
 
 
 __all__ = [

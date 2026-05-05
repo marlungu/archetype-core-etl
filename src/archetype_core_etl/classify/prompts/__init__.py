@@ -28,9 +28,9 @@ def load_prompt(version: str = "compliance_v1") -> str:
 
 
 def prompt_hash(version: str = "compliance_v1") -> str:
-    """SHA-256 hash (first 16 hex chars) of the prompt text."""
+    """Full SHA-256 hex digest (64 chars) of the prompt text."""
     text = load_prompt(version)
-    return hashlib.sha256(text.encode()).hexdigest()[:16]
+    return hashlib.sha256(text.encode()).hexdigest()
 
 
 __all__ = ["load_prompt", "prompt_hash"]

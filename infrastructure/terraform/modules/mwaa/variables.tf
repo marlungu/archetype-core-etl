@@ -49,3 +49,9 @@ variable "airflow_version" {
   type        = string
   default     = "3.0.2"
 }
+
+variable "webserver_access_mode" {
+  description = "MWAA webserver access: PUBLIC_ONLY for demo, PRIVATE_ONLY for production."
+  type        = string
+  default     = "PUBLIC_ONLY"
+}

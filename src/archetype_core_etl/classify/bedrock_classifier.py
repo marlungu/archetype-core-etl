@@ -268,7 +268,7 @@ class BedrockClassifier:
 
     @staticmethod
     def prompt_hash(version: str = "compliance_v1") -> str:
-        """SHA-256 hash (first 16 hex chars) of the active prompt version.
+        """Full SHA-256 hex digest (64 chars) of the active prompt version.
 
         Records which prompt file generated each result. A change in the
         system prompt produces a different hash, making version drift

@@ -40,3 +40,21 @@ variable "instance_class" {
   type        = string
   default     = "db.t3.micro"
 }
+
+variable "multi_az" {
+  description = "Enable Multi-AZ for RDS. False for dev, true for production."
+  type        = bool
+  default     = false
+}
+
+variable "deletion_protection" {
+  description = "Enable deletion protection. False for dev, true for production."
+  type        = bool
+  default     = false
+}
+
+variable "skip_final_snapshot" {
+  description = "Skip final snapshot on destroy. True for dev, false for production."
+  type        = bool
+  default     = true
+}

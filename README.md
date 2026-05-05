@@ -15,13 +15,15 @@ archetype-core-etl ingests federal document records from S3 and Kinesis, normali
 |---|---|---|
 | Python | 3.12+ | Core runtime for extract, transform, classify, and load modules |
 | Apache Airflow | 3.2 | DAG orchestration — batch and streaming pipeline scheduling |
-| Amazon MWAA | 3.2-compatible | Managed Airflow in production — `mw1.small` workers, `PUBLIC_ONLY` endpoint |
+| Amazon MWAA | 3.0.2 | Managed Airflow in production — `mw1.small` workers, `PUBLIC_ONLY` endpoint |
 | Amazon Bedrock (Claude Sonnet 4.6) | `us.anthropic.claude-sonnet-4-6` | Compliance classification with structured JSON output |
 | Databricks Delta Lake | SDK ~0.105 | Bronze/Gold table storage via Statement Execution API |
 | PostgreSQL | 16.13 | Audit trail persistence with `execute_values` batch inserts |
 | Great Expectations | 1.17+ (fluent API) | Data quality validation — agency, priority, schema enforcement |
 | Terraform | AWS ~5.0 / Databricks ~1.40 | Infrastructure provisioning — S3, IAM, RDS, MWAA, networking |
 | Docker Compose | — | Local development stack — Airflow, Postgres, Redis, LocalStack |
+
+> **Version note:** Docker Compose runs Airflow 3.2.0 locally. AWS MWAA supports Airflow 3.0.2 in production. DAGs are compatible with both versions.
 
 ## Repository Layout
 

@@ -241,7 +241,7 @@ class AuditWriter:
             else:
                 raw = {"record_id": r.record_id}
             record_json = json.dumps(raw, sort_keys=True, default=str)
-            input_record_hash = hashlib.sha256(record_json.encode()).hexdigest()[:16]
+            input_record_hash = hashlib.sha256(record_json.encode()).hexdigest()
             entries.append(
                 AuditEntry(
                     record_id=r.record_id,

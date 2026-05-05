@@ -131,8 +131,8 @@ def batch_pipeline() -> None:
         )
 
     @task()
-    def write_delta_bronze(payload: dict, run_id: str) -> dict:
-        """Write all classification results to the Bronze Delta table."""
+    def write_delta(payload: dict, run_id: str) -> dict:
+        """Write classification results to Databricks Delta Lake bronze and gold tables."""
         from dags.common.serialization import deserialize_classification_payload
         from databricks.sdk import WorkspaceClient
 
@@ -141,7 +141,7 @@ def batch_pipeline() -> None:
         from archetype_core_etl.load import DeltaWriter
 
         logger = get_logger(__name__)
-        logger.info("write_delta_bronze.start", extra={"pipeline_run_id": run_id})
+        logger.info("write_delta.start", extra={"pipeline_run_id": run_id})
         settings = get_settings()
         ws = WorkspaceClient(host=settings.databricks.host)
         writer = DeltaWriter(
@@ -153,6 +153,7 @@ def batch_pipeline() -> None:
 
         results, _, _, _, _ = deserialize_classification_payload(payload)
         writer.write_bronze(results, pipeline_run_id=run_id)
+        writer.write_gold(results, pipeline_run_id=run_id)
         return payload
 
     @task()
@@ -185,13 +186,13 @@ def batch_pipeline() -> None:
             input_records=input_records,
         )
 
-    # Chain: generate_run_id → ingest → gate → classify → bronze → audit
+    # Chain: generate_run_id → ingest → gate → classify → delta (bronze+gold) → audit
     run_id = generate_run_id()
     raw = ingest_from_s3(run_id)
     gated = run_quality_gate(raw, run_id)
     classified = classify_records(gated, run_id)
-    bronze_done = write_delta_bronze(classified, run_id)
-    write_audit(bronze_done, run_id)
+    delta_done = write_delta(classified, run_id)
+    write_audit(delta_done, run_id)
 
 
 batch_pipeline()

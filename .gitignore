@@ -169,3 +169,7 @@ data/external/*
 docs/_build/
 site/
 docker-compose.override.yml
+
+# ---------- Project-specific ----------
+!.env.example
+CLAUDE.md

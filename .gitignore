@@ -173,3 +173,11 @@ docker-compose.override.yml
 # ---------- Project-specific ----------
 !.env.example
 CLAUDE.md
+
+# Local AI agent config
+.claude/
+.codex/
+AGENTS.md
+
+# Local export archives
+*.zip

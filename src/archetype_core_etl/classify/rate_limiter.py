@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 
 
@@ -38,10 +39,19 @@ class RateLimiter:
         client.invoke_model(...)
     """
 
-    def __init__(self, requests_per_minute: int, tokens_per_minute: int) -> None:
+    def __init__(
+            self, 
+            requests_per_minute: int, 
+            tokens_per_minute: int,
+            *,
+            clock: Callable[[], float] | None = None,
+            sleeper: Callable[[float], None] | None = None,
+    ) -> None:
         if requests_per_minute <= 0 or tokens_per_minute <= 0:
             raise ValueError("rate limits must be positive")
-        now = time.monotonic()
+        self._clock = clock or time.monotonic
+        self._sleep = sleeper or time.sleep
+        now = self._clock()
         self._request_bucket = _Bucket(
             capacity=float(requests_per_minute),
             refill_per_second=requests_per_minute / 60.0,
@@ -60,10 +70,15 @@ class RateLimiter:
         """Block until both buckets can admit one request of ``estimated_tokens``."""
         if estimated_tokens < 0:
             raise ValueError("estimated_tokens must be non-negative")
+        if estimated_tokens > self._token_bucket.capacity:
+            raise ValueError(
+                "estimated_tokens exceeds limiter token bucket capacity; "
+                "request can never be admitted"
+            )
 
         while True:
             with self._lock:
-                now = time.monotonic()
+                now = self._clock()
                 self._request_bucket.refill(now)
                 self._token_bucket.refill(now)
 
@@ -88,7 +103,7 @@ class RateLimiter:
                 )
                 wait = max(req_wait, tok_wait)
 
-            time.sleep(wait)
+            self._sleep(wait)
 
 
 __all__ = ["RateLimiter"]

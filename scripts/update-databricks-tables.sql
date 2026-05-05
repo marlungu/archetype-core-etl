@@ -1,5 +1,6 @@
 -- Run this in Databricks SQL Editor to add new columns to existing tables.
--- These ALTER statements are idempotent — they won't fail if columns already exist.
+-- Note: Databricks ALTER TABLE ADD COLUMNS will fail if columns already exist.
+-- Run these only once, or check the table schema first with DESCRIBE TABLE.
 
 USE CATALOG archetype_etl;
 USE SCHEMA default;

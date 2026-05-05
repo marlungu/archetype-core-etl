@@ -37,17 +37,20 @@ archetype-core-etl/
 │   ├── classify/        # BedrockClassifier, token-bucket rate limiter, cost tracker
 │   └── load/            # DeltaWriter (parameterized SQL), AuditWriter (psycopg2)
 ├── dags/
-│   ├── common/          # Shared DAG default_args
+│   ├── common/          # Shared DAG default_args, XCom serialization helpers
 │   └── pipelines/       # batch_pipeline_dag.py, streaming_pipeline_dag.py
 ├── infrastructure/
 │   └── terraform/       # versions.tf, environments/dev/, modules/{s3,iam,networking,rds,mwaa}
-├── scripts/             # generate_data.py (synthetic data), update-databricks-tables.sql, docker-entrypoint-init.sh
+├── scripts/             # generate_data.py, init-db.sql, init-localstack.sh, setup-local.sh,
+│                        #   docker-entrypoint-init.sh, update-databricks-tables.sql
 ├── tests/
-│   ├── unit/            # Schema, normalizer, quality gate, cost tracker tests
-│   └── integration/     # External system tests (marked slow)
-├── config/              # Environment-specific configuration
-├── notebooks/           # Databricks notebooks
-├── docs/                # Architecture and runbooks
+│   ├── unit/            # Schema, normalizer, quality gate, cost tracker, dead letter, prompt versioning
+│   └── fixtures/        # Shared test fixtures
+├── config/              # Environment-specific configuration (dev/, staging/, prod/)
+├── data/                # Placeholder directories for raw/, interim/, processed/, external/ data
+├── docs/                # Architecture diagrams (architecture/), ADRs (adr/), runbooks (runbooks/)
+├── notebooks/           # Databricks notebooks (exploratory/, production/)
+├── .github/             # GitHub Actions CI workflow (workflows/ci.yml)
 ├── docker-compose.yml   # Full Airflow stack with Celery executor
 ├── pyproject.toml       # Build config, dependencies, ruff/mypy/pytest settings
 └── .pre-commit-config.yaml  # ruff, mypy, secret detection hooks

@@ -19,7 +19,7 @@ class TestNormalizeRecordValid:
         result = normalize_record(valid_record_dict)
         assert result.document_text == "lots of spaces here"
 
-    def test_agency_is_uppercased(self, valid_record_dict):
+    def test_agency_is_converted_to_uppercase(self, valid_record_dict):
         valid_record_dict["agency"] = "uscis"
         result = normalize_record(valid_record_dict)
         assert result.agency == "USCIS"

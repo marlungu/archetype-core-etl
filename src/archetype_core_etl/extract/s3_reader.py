@@ -102,7 +102,12 @@ class S3Reader:
             )
             for page in pages:
                 for obj in page.get("Contents", []):
-                    yield from self._read_object(obj["Key"])
+                    key = obj["Key"]
+                    for line_number, record in enumerate(self._read_object(key), start=1):
+                        record["_source_bucket"] = self._bucket
+                        record["_source_key"] = key
+                        record["_source_line_number"] = line_number
+                        yield record
         except (BotoCoreError, ClientError) as exc:
             logger.exception(
                 "s3_reader.list_failed",

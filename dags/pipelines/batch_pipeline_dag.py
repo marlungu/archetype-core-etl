@@ -108,6 +108,7 @@ def batch_pipeline() -> None:
 
         from dags.common.serialization import serialize_classification_payload
 
+        source_keys = list({r.get("_source_key", "unknown") for r in records})
         validated = [normalize_record(r) for r in records]
         results = classifier.classify_batch(validated)
 
@@ -127,7 +128,11 @@ def batch_pipeline() -> None:
 
         prompt_hash = BedrockClassifier.prompt_hash()
         return serialize_classification_payload(
-            results, validated, pipeline_run_id=run_id, prompt_hash=prompt_hash
+            results,
+            validated,
+            pipeline_run_id=run_id,
+            prompt_hash=prompt_hash,
+            source_keys=source_keys,
         )
 
     @task()
@@ -181,7 +186,7 @@ def batch_pipeline() -> None:
             submitted_at_by_record=submitted_at_by_record,
             quality_gate_passed=True,
             source_bucket=settings.aws.raw_bucket,
-            source_key="federal-documents/",
+            source_key=", ".join(payload.get("source_keys", ["unknown"])),
             prompt_hash=prompt_hash,
             input_records=input_records,
         )

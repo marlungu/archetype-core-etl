@@ -19,6 +19,7 @@ def serialize_classification_payload(
     *,
     pipeline_run_id: str,
     prompt_hash: str,
+    source_keys: list[str] | None = None,
 ) -> dict:
     """Serialize classification results and source timestamps for XCom transport.
 
@@ -48,6 +49,7 @@ def serialize_classification_payload(
             str(r.record_id): r.submitted_at.isoformat() for r in validated_records
         },
         "validated_records": [r.model_dump(mode="json") for r in validated_records],
+        "source_keys": source_keys or [],
     }
 
 

@@ -53,7 +53,8 @@ def normalize_record(raw: dict[str, Any]) -> FederalDocumentRecord:
     raises :class:`TransformationError` with the original ``record_id``
     (or ``<unknown>`` when absent) embedded in the message.
     """
-    record = dict(raw)
+    cleaned = {k: v for k, v in raw.items() if not k.startswith("_source_")}
+    record = dict(cleaned)
 
     for field_name in _TEXT_FIELDS:
         value = record.get(field_name)

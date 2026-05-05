@@ -40,12 +40,12 @@ class RateLimiter:
     """
 
     def __init__(
-            self,
-            requests_per_minute: int,
-            tokens_per_minute: int,
-            *,
-            clock: Callable[[], float] | None = None,
-            sleeper: Callable[[float], None] | None = None,
+        self,
+        requests_per_minute: int,
+        tokens_per_minute: int,
+        *,
+        clock: Callable[[], float] | None = None,
+        sleeper: Callable[[float], None] | None = None,
     ) -> None:
         if requests_per_minute <= 0 or tokens_per_minute <= 0:
             raise ValueError("rate limits must be positive")

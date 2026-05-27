@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, cast
 
 from databricks.sdk.service.sql import StatementParameterListItem, StatementResponse, StatementState
 
@@ -166,7 +166,7 @@ class DeltaWriter:
         # ── If already terminal, return or raise immediately ─────────
         if state in _TERMINAL_STATES:
             self._check_terminal(response, table_fqn)
-            return response
+            return cast(StatementResponse, response)
 
         # ── Poll loop ────────────────────────────────────────────────
         elapsed = 0.0
@@ -202,7 +202,7 @@ class DeltaWriter:
 
             if state in _TERMINAL_STATES:
                 self._check_terminal(response, table_fqn)
-                return response
+                return cast(StatementResponse, response)
 
         # ── Local timeout — cancel and raise ─────────────────────────
         try:
@@ -246,6 +246,16 @@ class DeltaWriter:
             "USING (SELECT :record_id AS record_id, :pipeline_run_id AS pipeline_run_id) AS source "
             "ON target.record_id = source.record_id "
             "AND target.pipeline_run_id = source.pipeline_run_id "
+            "WHEN MATCHED THEN UPDATE SET "
+            "target.compliance_score = :compliance_score, "
+            "target.risk_tier = :risk_tier, "
+            "target.policy_alignment = :policy_alignment, "
+            "target.reasoning = :reasoning, "
+            "target.input_tokens = :input_tokens, "
+            "target.output_tokens = :output_tokens, "
+            "target.tokens_used = :tokens_used, "
+            "target.model_id = :model_id, "
+            "target.classified_at = :classified_at "
             "WHEN NOT MATCHED THEN INSERT "
             "(record_id, pipeline_run_id, compliance_score, risk_tier, policy_alignment, "
             "reasoning, input_tokens, output_tokens, tokens_used, model_id, classified_at) VALUES "

@@ -89,8 +89,8 @@ def streaming_pipeline() -> None:
         settings = get_settings()
         client = build_boto3_client("bedrock-runtime")
         rate_limiter = RateLimiter(
-            requests_per_minute=20,
-            tokens_per_minute=40_000,
+            requests_per_minute=settings.bedrock.requests_per_minute,
+            tokens_per_minute=settings.bedrock.tokens_per_minute,
         )
         classifier = BedrockClassifier(
             client=client,

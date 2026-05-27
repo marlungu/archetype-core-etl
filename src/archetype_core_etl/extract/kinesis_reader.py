@@ -72,6 +72,9 @@ class KinesisReader:
         at ``TRIM_HORIZON``. After every successful ``get_records`` call
         the checkpoint is advanced to the latest sequence number in the
         batch.
+
+        Corrupted records that fail JSON decoding are skipped and logged
+        so the stream does not get blocked.
         """
         for shard_id in self._list_shards():
             iterator = self._get_shard_iterator(shard_id)
@@ -79,7 +82,21 @@ class KinesisReader:
                 records, iterator = self._get_records(shard_id, iterator)
                 if not records:
                     break
-                yield [self._decode(r) for r in records]
+                decoded_batch = []
+                for r in records:
+                    try:
+                        decoded_batch.append(self._decode(r, shard_id))
+                    except ExtractionError as exc:
+                        logger.error(
+                            "kinesis_reader.decode_failed",
+                            extra={
+                                "stream": self._stream_name,
+                                "shard": shard_id,
+                                "sequence_number": r.get("SequenceNumber"),
+                                "error": str(exc),
+                            },
+                        )
+                yield decoded_batch
 
     def _list_shards(self) -> list[str]:
         try:
@@ -149,12 +166,15 @@ class KinesisReader:
             )
         return records, response.get("NextShardIterator")
 
-    @staticmethod
-    def _decode(record: dict[str, Any]) -> dict[str, Any]:
+    def _decode(self, record: dict[str, Any], shard_id: str) -> dict[str, Any]:
         data = record["Data"]
         payload = data if isinstance(data, (bytes, bytearray)) else base64.b64decode(data)
         try:
-            return cast(dict[str, Any], json.loads(payload))
+            decoded = cast(dict[str, Any], json.loads(payload))
+            decoded["_source_bucket"] = self._stream_name
+            decoded["_source_key"] = f"shard-{shard_id}/{record.get('SequenceNumber')}"
+            decoded["_source_line_number"] = 1
+            return decoded
         except json.JSONDecodeError as exc:
             raise ExtractionError(
                 f"Malformed JSON in Kinesis record {record.get('SequenceNumber')}: {exc}"

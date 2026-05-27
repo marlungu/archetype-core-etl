@@ -113,6 +113,14 @@ class BedrockSettings(BaseSettings):
 
     model_id: str = Field(..., description="Bedrock model identifier.")
     region: str = Field(..., description="AWS region for the Bedrock runtime endpoint.")
+    requests_per_minute: int = Field(
+        default=20,
+        description="Bedrock request rate limit per minute.",
+    )
+    tokens_per_minute: int = Field(
+        default=40_000,
+        description="Bedrock token rate limit per minute.",
+    )
 
 
 class Settings(BaseSettings):

@@ -34,11 +34,60 @@ Do not put application source code in these folders.
 - Do not read `.env`, `.env.*`, `*.tfvars`, private keys, or credential files.
 - Do not add secrets, tokens, passwords, or account IDs to docs or code.
 - Do not remove tests, logging, audit fields, validation, or governance controls for speed.
-- Do not make architecture changes without explaining the tradeoff first.
+- Do not make architecture changes without explaining the tradeoff first and recording the decision in `00_CONTEXT/decisions.md`.
 - Keep changes small and specific.
 - Prefer existing project patterns.
 - Use plain language.
 - Do not use em dashes.
+
+## Git Workflow
+
+All agent work follows the same workflow. There are no exceptions for "small" changes.
+
+- One branch per task. Branch names follow `<agent>/<short-description>`, for example `codex/fix-audit-hash-lookup` or `claude/refactor-classify-batch`.
+- One concern per pull request. If a task touches three unrelated concerns, open three pull requests.
+- A pull request requires human approval before merge. Agents do not approve their own pull requests.
+- The CI workflow at `.github/workflows/ci.yml` must pass before merge. CI runs `make precommit` and `make test` inside the dev container, which matches the local dev workflow exactly.
+- Commits use the agent's distinct git identity. The author identity makes `git log --author` and `git blame` accurate.
+- Commit messages follow the format below.
+
+### Commit Message Format
+
+```
+<type>(<scope>): <short summary>
+
+<longer explanation if needed, wrapped at 72 columns>
+
+<optional footer with issue references or co-author tags>
+```
+
+Types: `fix`, `feat`, `refactor`, `test`, `docs`, `chore`, `security`, `infra`.
+
+Scopes match the package or folder: `audit`, `classifier`, `quality-gate`, `dag`, `infra`, `docs`, `pre-commit`, and so on.
+
+Examples:
+
+```
+fix(audit): correct input_record_hash lookup when records are skipped
+refactor(classifier): rename max_retries to max_attempts, default 3
+infra(dev-container): add dev-write service for make format
+```
+
+### Author Identity
+
+Each agent configures its git identity at the start of the session:
+
+```
+# Codex
+git config user.name "Codex (archetype-core-etl)"
+git config user.email "codex@archetype-core-etl.local"
+
+# Claude Code
+git config user.name "Claude Code (archetype-core-etl)"
+git config user.email "claude-code@archetype-core-etl.local"
+```
+
+Use repo-local config (`git config`, not `git config --global`) so the identity stays project-scoped.
 
 ## Documentation Consistency
 
@@ -57,6 +106,7 @@ Use these commands when validation is needed:
 - `make lint` - run ruff checks inside the dev container
 - `make typecheck` - run mypy inside the dev container
 - `make format` - run ruff formatting through the writable dev service
+- `make precommit` - run all pre-commit hooks inside the dev container
 - `python3 -m pytest` - fallback when running directly
 - `python3 -m ruff check src/ tests/ dags/` - fallback lint command
 

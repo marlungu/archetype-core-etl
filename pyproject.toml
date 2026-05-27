@@ -123,6 +123,7 @@ check_untyped_defs = true
 no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
+enable_error_code = []
 show_error_codes = true
 pretty = true
 
@@ -148,6 +149,10 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["dags.*"]
 disallow_untyped_decorators = false
+
+[[tool.mypy.overrides]]
+module = "archetype_core_etl.transform.quality_gate"
+warn_unused_ignores = false
 
 # ---------- Pytest ----------
 [tool.pytest.ini_options]

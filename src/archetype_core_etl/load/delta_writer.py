@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, cast
 
 from databricks.sdk.service.sql import StatementParameterListItem, StatementResponse, StatementState
 
@@ -166,7 +166,7 @@ class DeltaWriter:
         # ── If already terminal, return or raise immediately ─────────
         if state in _TERMINAL_STATES:
             self._check_terminal(response, table_fqn)
-            return response
+            return cast(StatementResponse, response)
 
         # ── Poll loop ────────────────────────────────────────────────
         elapsed = 0.0
@@ -202,7 +202,7 @@ class DeltaWriter:
 
             if state in _TERMINAL_STATES:
                 self._check_terminal(response, table_fqn)
-                return response
+                return cast(StatementResponse, response)
 
         # ── Local timeout — cancel and raise ─────────────────────────
         try:

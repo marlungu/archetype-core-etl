@@ -43,6 +43,8 @@ x-airflow-common: &airflow-common
     AIRFLOW__API__SECRET_KEY: ${AIRFLOW_WEBSERVER_SECRET_KEY}
     AIRFLOW__API__EXPOSE_CONFIG: "false"
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    # Point the scheduler (and all other components) at the project DAG mount.
+    AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags/project
     # Local-dev only: install the FAB provider on container start. For a
     # production image this should be baked into a custom Dockerfile instead.
     _PIP_ADDITIONAL_REQUIREMENTS: "apache-airflow-providers-fab>=2.0.0"
@@ -55,14 +57,26 @@ x-airflow-common: &airflow-common
     ARCHETYPE_AUDIT_DB_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${AUDIT_DB_NAME}
   volumes:
     - airflow-dags:/opt/airflow/dags
+    # Project DAGs mounted read-only into the folder Airflow watches.
+    - ./dags:/opt/airflow/dags/project:ro
     - airflow-logs:/opt/airflow/logs
     - airflow-plugins:/opt/airflow/plugins
     - airflow-config:/opt/airflow/config
+  security_opt:
+    - no-new-privileges:true
+  # Airflow needs networking and process management capabilities;
+  # do not aggressively drop here. The no-new-privileges flag is the
+  # main sandboxing win.
   depends_on: &airflow-common-depends-on
     postgres:
       condition: service_healthy
     redis:
       condition: service_healthy
+
+networks:
+  default:
+    driver: bridge
+    internal: false  # services need PyPI access for _PIP_ADDITIONAL_REQUIREMENTS
 
 services:
   postgres:
@@ -81,6 +95,16 @@ services:
       retries: 5
       start_period: 10s
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
 
   redis:
     image: redis:7.4.3-alpine
@@ -96,6 +120,14 @@ services:
       retries: 5
       start_period: 5s
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN      # entrypoint chowns /data before dropping to the redis user
+      - SETGID
+      - SETUID
 
   localstack:
     image: localstack/localstack:3.5.0
@@ -115,6 +147,10 @@ services:
       retries: 10
       start_period: 15s
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    # LocalStack mocks AWS internals and needs broader capabilities.
+    # Do not drop ALL here — it breaks several service emulators.
 
   airflow-init:
     <<: *airflow-common
@@ -212,6 +248,82 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+
+  dev:
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile
+    image: archetype-core-etl-dev:local
+    working_dir: /workspace
+    user: "1000:1000"
+    volumes:
+      # Source code — read-only. Auto-fixing hooks cannot run against :ro mounts;
+      # use `make format` which overrides these to writable for that command only.
+      - ./src:/workspace/src:ro
+      - ./tests:/workspace/tests:ro
+      - ./dags:/workspace/dags:ro
+      - ./scripts:/workspace/scripts:ro
+      - ./pyproject.toml:/workspace/pyproject.toml:ro
+      - ./.pre-commit-config.yaml:/workspace/.pre-commit-config.yaml:ro
+      # Git repo metadata — pre-commit needs this to discover tracked files.
+      # Read-only: git reads the index; pre-commit does not write commit objects.
+      - ./.git:/workspace/.git:ro
+      # Writable cache — bind-mount so ownership is set by the Dockerfile chown
+      # and survives container restarts without a named volume.
+      - ./.cache:/workspace/.cache
+    environment:
+      # Point at the same audit DB the Airflow stack uses, but using the
+      # service hostname so the dev container talks to the same postgres.
+      ARCHETYPE_DB_AUDIT_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${AUDIT_DB_NAME}
+      ARCHETYPE_AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      # git safe.directory: host UID differs from container UID (1000), so git
+      # refuses the repo by default. Override via env vars (git ≥2.32).
+      GIT_CONFIG_COUNT: "1"
+      GIT_CONFIG_KEY_0: "safe.directory"
+      GIT_CONFIG_VALUE_0: "/workspace"
+      MYPY_CACHE_DIR: /workspace/.cache/mypy
+      RUFF_CACHE_DIR: /workspace/.cache/ruff
+      PYTEST_ADDOPTS: "-p no:cacheprovider"
+      COVERAGE_FILE: /tmp/.coverage
+    # Memory limits prevent mypy OOM / SIGSEGV crashes on large type-checking runs.
+    mem_limit: 4g
+    mem_reservation: 1g
+    # The dev container is short-lived per command — no restart, no healthcheck.
+    restart: "no"
+    # Sandboxing: drop all Linux capabilities the dev tasks do not need
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - default
+    # Profiles keep the dev container from starting on `make up`
+    # — it is only invoked via `docker compose run --rm dev <cmd>`
+    profiles:
+      - tools
+
+  # dev-write is identical to dev but with all source mounts read-write.
+  # Used exclusively by `make format` so ruff can modify source files.
+  # extends replaces the volumes block entirely — every mount must be listed.
+  dev-write:
+    extends:
+      service: dev
+    volumes:
+      - ./src:/workspace/src
+      - ./tests:/workspace/tests
+      - ./dags:/workspace/dags
+      - ./scripts:/workspace/scripts
+      - ./pyproject.toml:/workspace/pyproject.toml
+      - ./.pre-commit-config.yaml:/workspace/.pre-commit-config.yaml
+      - ./.git:/workspace/.git:ro
+      - ./.cache:/workspace/.cache
+    profiles:
+      - tools
 
 volumes:
   postgres-data:

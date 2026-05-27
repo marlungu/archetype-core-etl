@@ -12,8 +12,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-import boto3
-
+from archetype_core_etl.common.aws import build_boto3_client
 from archetype_core_etl.common.logging import get_logger
 
 logger = get_logger(__name__)
@@ -31,7 +30,7 @@ class DeadLetterWriter:
     ) -> None:
         self._bucket = bucket
         self._prefix = prefix
-        self._client = client or boto3.client("s3")
+        self._client = client or build_boto3_client("s3")
 
     def write(
         self,

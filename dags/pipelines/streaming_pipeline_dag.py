@@ -10,6 +10,7 @@ Postgres). All configuration is sourced from
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from airflow.decorators import dag, task
 from dags.common.dag_defaults import default_args
@@ -26,7 +27,7 @@ from dags.common.dag_defaults import default_args
 )
 def streaming_pipeline() -> None:
     @task()
-    def generate_run_id(**context) -> str:
+    def generate_run_id(**context: Any) -> str:
         """Return the Airflow dag_run.run_id, falling back to a UUID.
 
         Using the Airflow-assigned run ID means Airflow's own retry and
@@ -41,7 +42,7 @@ def streaming_pipeline() -> None:
         return str(uuid.uuid4())
 
     @task()
-    def ingest_from_kinesis(run_id: str) -> list[dict]:
+    def ingest_from_kinesis(run_id: str) -> list[dict[str, Any]]:
         """Read batches from Kinesis and flatten into a single list of dicts."""
         from archetype_core_etl.common.logging import get_logger
         from archetype_core_etl.config import get_settings
@@ -57,17 +58,17 @@ def streaming_pipeline() -> None:
             )
 
         reader = KinesisReader(stream_name=stream_name)
-        records: list[dict] = []
+        records: list[dict[str, Any]] = []
         for batch in reader.read_batches():
             records.extend(batch)
         return records
 
     @task()
-    def classify_records(records: list[dict], run_id: str) -> dict:
+    def classify_records(records: list[dict[str, Any]], run_id: str) -> dict[str, Any]:
         """Normalize, classify via Bedrock, and return serialized results."""
-        import boto3
-
         from archetype_core_etl.classify import BedrockClassifier
+        from archetype_core_etl.classify.rate_limiter import RateLimiter
+        from archetype_core_etl.common.aws import build_boto3_client
         from archetype_core_etl.common.dead_letter import DeadLetterWriter
         from archetype_core_etl.common.logging import get_logger
         from archetype_core_etl.config import get_settings
@@ -86,13 +87,15 @@ def streaming_pipeline() -> None:
             }
 
         settings = get_settings()
-        client = boto3.client(
-            "bedrock-runtime",
-            region_name=settings.bedrock.region,
+        client = build_boto3_client("bedrock-runtime")
+        rate_limiter = RateLimiter(
+            requests_per_minute=20,
+            tokens_per_minute=40_000,
         )
         classifier = BedrockClassifier(
             client=client,
             model_id=settings.bedrock.model_id,
+            rate_limiter=rate_limiter,
         )
 
         from dags.common.serialization import serialize_classification_payload
@@ -125,7 +128,7 @@ def streaming_pipeline() -> None:
         )
 
     @task()
-    def write_audit(payload: dict, run_id: str) -> None:
+    def write_audit(payload: dict[str, Any], run_id: str) -> None:
         """Persist audit rows to PostgreSQL."""
         from dags.common.serialization import deserialize_classification_payload
 

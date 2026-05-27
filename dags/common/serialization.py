@@ -20,7 +20,7 @@ def serialize_classification_payload(
     pipeline_run_id: str,
     prompt_hash: str,
     source_keys: list[str] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Serialize classification results and source timestamps for XCom transport.
 
     ``validated_records`` are included as raw dicts so downstream tasks can
@@ -54,7 +54,7 @@ def serialize_classification_payload(
 
 
 def deserialize_classification_payload(
-    payload: dict,
+    payload: dict[str, Any],
 ) -> tuple[list[ClassificationResult], dict[str, datetime], str, str, list[dict[str, Any]]]:
     """Reconstruct ClassificationResult list, submitted_at map, pipeline_run_id, prompt_hash, and input records."""
     pipeline_run_id: str = payload["pipeline_run_id"]

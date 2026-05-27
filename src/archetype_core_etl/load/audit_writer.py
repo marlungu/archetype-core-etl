@@ -225,8 +225,11 @@ class AuditWriter:
         prompt_hash: str,
         input_records: list[dict[str, Any]] | None,
     ) -> list[AuditEntry]:
+        input_lookup = (
+            {str(rec.get("record_id")): rec for rec in input_records} if input_records else {}
+        )
         entries: list[AuditEntry] = []
-        for i, r in enumerate(results):
+        for r in results:
             submitted_at = submitted_at_by_record.get(r.record_id)
             if submitted_at is None:
                 raise LoadError(
@@ -236,10 +239,16 @@ class AuditWriter:
             cost_input, cost_output, cost_total = self._cost_for(r)
             # Hash the original input record when available; fall back to record_id
             # so every row has a non-null fingerprint even on older call sites.
-            if input_records is not None and i < len(input_records):
-                raw = input_records[i]
-            else:
-                raw = {"record_id": r.record_id}
+            raw = input_lookup.get(str(r.record_id))
+            if raw is None:
+                logger.warning(
+                    "audit_writer.input_lookup_miss",
+                    extra={
+                        "pipeline_run_id": pipeline_run_id,
+                        "record_id": str(r.record_id),
+                    },
+                )
+                raw = {"record_id": str(r.record_id)}
             record_json = json.dumps(raw, sort_keys=True, default=str)
             input_record_hash = hashlib.sha256(record_json.encode()).hexdigest()
             entries.append(

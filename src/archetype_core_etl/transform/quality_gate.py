@@ -19,7 +19,7 @@ from typing import Any
 
 import great_expectations as gx
 import pandas as pd
-from great_expectations.expectations import (  # type: ignore[attr-defined]
+from great_expectations.expectations import (
     ExpectColumnValueLengthsToBeBetween,
     ExpectColumnValuesToBeBetween,
     ExpectColumnValuesToBeInSet,

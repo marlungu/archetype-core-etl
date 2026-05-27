@@ -21,14 +21,16 @@ from __future__ import annotations
 import argparse
 import json
 import random
-import sys
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from faker import Faker
+
+from archetype_core_etl.common.aws import build_boto3_client
+from archetype_core_etl.config import get_settings
 
 # ---------------------------------------------------------------------------
 # Weighted distributions
@@ -97,6 +99,14 @@ _FORM_NUMBERS = [
 ]
 
 # ---------------------------------------------------------------------------
+# Probability thresholds
+# ---------------------------------------------------------------------------
+
+_FLAGS_NO_FLAG_THRESHOLD: float = 0.80  # 80 % of records get no flags
+_FLAGS_ONE_FLAG_THRESHOLD: float = 0.95  # next 15 % get one flag; top 5 % get two
+_OFFICER_NOTES_THRESHOLD: float = 0.30  # 30 % of records carry officer notes
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -110,9 +120,9 @@ def _weighted_choice(choices: list[tuple[str, float]], rng: random.Random) -> st
 def _pick_flags(rng: random.Random) -> list[str]:
     """Return flags with distribution: 80% none, 15% one, 5% two."""
     roll = rng.random()
-    if roll < 0.80:
+    if roll < _FLAGS_NO_FLAG_THRESHOLD:
         return []
-    if roll < 0.95:
+    if roll < _FLAGS_ONE_FLAG_THRESHOLD:
         return [rng.choice(_FLAG_POOL)]
     return rng.sample(_FLAG_POOL, k=2)
 
@@ -122,7 +132,7 @@ def _generate_record(fake: Faker, rng: random.Random) -> dict[str, Any]:
     return {
         "record_id": str(uuid.UUID(int=rng.getrandbits(128))),
         "submitted_at": fake.date_time_between(
-            start_date="-90d", end_date="now", tzinfo=timezone.utc
+            start_date="-90d", end_date="now", tzinfo=UTC
         ).isoformat(),
         "document_type": rng.choice(_DOCUMENT_TYPES),
         "agency": _weighted_choice(_AGENCIES, rng),
@@ -133,7 +143,7 @@ def _generate_record(fake: Faker, rng: random.Random) -> dict[str, Any]:
         "form_number": rng.choice(_FORM_NUMBERS),
         "pages": rng.randint(1, 50),
         "flags": _pick_flags(rng),
-        "officer_notes": fake.sentence() if rng.random() < 0.30 else None,
+        "officer_notes": fake.sentence() if rng.random() < _OFFICER_NOTES_THRESHOLD else None,
     }
 
 
@@ -144,7 +154,7 @@ def _generate_record(fake: Faker, rng: random.Random) -> dict[str, Any]:
 
 def _write_local(records: list[dict[str, Any]], output_path: str | None) -> str:
     """Write NDJSON to local disk, partitioned by date."""
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     partition = now.strftime("%Y/%m/%d")
     timestamp = now.strftime("%Y%m%dT%H%M%S")
 
@@ -162,14 +172,11 @@ def _write_local(records: list[dict[str, Any]], output_path: str | None) -> str:
 
 def _write_s3(records: list[dict[str, Any]], output_path: str | None) -> str:
     """Write NDJSON to S3, partitioned by date."""
-    from archetype_core_etl.common.aws import build_boto3_client
-    from archetype_core_etl.config import get_settings
-
     settings = get_settings()
     client = build_boto3_client("s3")
     bucket = settings.aws.raw_bucket
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     partition = now.strftime("%Y/%m/%d")
     timestamp = now.strftime("%Y%m%dT%H%M%S")
     prefix = output_path.rstrip("/") if output_path else "raw"
@@ -187,9 +194,7 @@ def _write_s3(records: list[dict[str, Any]], output_path: str | None) -> str:
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Generate synthetic federal document records."
-    )
+    parser = argparse.ArgumentParser(description="Generate synthetic federal document records.")
     parser.add_argument(
         "--records",
         type=int,

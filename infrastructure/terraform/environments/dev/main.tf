@@ -72,20 +72,20 @@ module "rds" {
   vpc_id                     = module.networking.vpc_id
   private_subnet_ids         = module.networking.private_subnet_ids
   allowed_security_group_ids = [module.networking.mwaa_security_group_id]
-  multi_az            = false  # true in production
-  deletion_protection = false  # true in production
-  skip_final_snapshot = true   # false in production
+  multi_az                   = false # true in production
+  deletion_protection        = false # true in production
+  skip_final_snapshot        = true  # false in production
 }
 
 module "mwaa" {
-  source             = "../../modules/mwaa"
-  project_name       = var.project_name
-  environment        = var.environment
-  region             = var.region
-  dags_bucket_arn    = module.s3.dags_bucket_arn
-  dags_bucket_name   = module.s3.dags_bucket_name
-  execution_role_arn = module.iam.mwaa_execution_role_arn
-  private_subnet_ids = module.networking.private_subnet_ids
-  security_group_ids = [module.networking.mwaa_security_group_id]
-  webserver_access_mode = "PUBLIC_ONLY"  # PRIVATE_ONLY in production
+  source                = "../../modules/mwaa"
+  project_name          = var.project_name
+  environment           = var.environment
+  region                = var.region
+  dags_bucket_arn       = module.s3.dags_bucket_arn
+  dags_bucket_name      = module.s3.dags_bucket_name
+  execution_role_arn    = module.iam.mwaa_execution_role_arn
+  private_subnet_ids    = module.networking.private_subnet_ids
+  security_group_ids    = [module.networking.mwaa_security_group_id]
+  webserver_access_mode = "PUBLIC_ONLY" # PRIVATE_ONLY in production
 }

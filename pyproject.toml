@@ -97,10 +97,15 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["PLR2004", "S101"]
+"tests/**/*.py" = ["PLR2004", "S101", "PLC0415"]  # deferred imports in test bodies are intentional for caplog/mock setup
 "dags/**/*.py" = ["PLC0415", "PLR0915"]  # deferred imports and long DAG functions are intentional
 "src/archetype_core_etl/load/delta_writer.py" = ["S608"]  # table_fqn is internal, values are parameterized
 "src/archetype_core_etl/config/settings.py" = ["PLW0108"]  # lambdas required for mypy forward-ref resolution
+"scripts/generate_data.py" = [
+    "PLR2004",  # probability thresholds are self-documenting magic numbers in a fake-data generator
+    "S311",     # random is not used for cryptographic purposes — this is synthetic test data
+    "PLC0415",  # deferred AWS imports are intentional: avoids loading cloud deps unless --output s3 is used
+]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -120,6 +125,29 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 show_error_codes = true
 pretty = true
+
+# Third-party packages that ship no stubs and have no stub package on PyPI.
+# Silencing import-not-found here is cleaner than scattering type: ignore
+# comments throughout the codebase.
+[[tool.mypy.overrides]]
+module = [
+    "great_expectations",
+    "great_expectations.*",
+    "databricks.*",
+    "pythonjsonlogger.*",
+    "airflow.*",
+]
+ignore_missing_imports = true
+
+# DAG files use @dag / @task decorators from apache-airflow, which ship no
+# PEP 561 type information. With ignore_missing_imports above, those names are
+# typed as Any, which strict mypy flags as untyped-decorator. Relax that check
+# only for the dags/ tree; everything else stays strict.
+# Module names are dags.* because mypy resolves dags/ as a namespace package
+# rooted at /workspace when invoked as `mypy src/ dags/`.
+[[tool.mypy.overrides]]
+module = ["dags.*"]
+disallow_untyped_decorators = false
 
 # ---------- Pytest ----------
 [tool.pytest.ini_options]

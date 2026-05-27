@@ -2,35 +2,50 @@
 # Install: pre-commit install
 # Run all: pre-commit run --all-files
 # All repo versions pinned to exact tags.
+#
+# Auto-fixing hooks (trailing-whitespace, end-of-file-fixer, ruff --fix,
+# ruff-format) are intentionally absent: the dev container mounts source
+# read-only, so hooks that write files cannot run. Use `make format` instead,
+# which re-mounts source writable for that command only.
+#
+# detect-aws-credentials is absent: it produces false positives on the literal
+# "test" credential string used throughout for LocalStack. detect-private-key
+# continues to cover real credential leaks.
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
       - id: check-yaml
         args: [--allow-multiple-documents]
       - id: check-toml
       - id: detect-private-key
-      - id: detect-aws-credentials
-        args: [--allow-missing-credentials]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.10
     hooks:
       - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
+        args: ["--no-fix"]
       - id: ruff-format
+        args: ["--check"]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.20.0
     hooks:
       - id: mypy
+        args: ["src/", "dags/"]
+        pass_filenames: false
         additional_dependencies:
           - "pydantic>=2.12"
           - "pydantic-settings>=2.13"
           - "boto3-stubs[bedrock-runtime,kinesis,s3]>=1.42"
-        args: [--config-file=pyproject.toml]
+          - "types-psycopg2>=2.9"
+          - "pandas-stubs>=3.0"
+
+  - repo: local
+    hooks:
+      - id: no-direct-boto3-client
+        name: no direct boto3.client() outside common/aws.py
+        entry: bash -c 'grep -rnE "(^|[^_])boto3\.client\(" --include="*.py" src/ dags/ | grep -v "common/aws.py" && exit 1 || exit 0'
+        language: system
         pass_filenames: false
-        files: ^src/

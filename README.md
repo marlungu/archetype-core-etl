@@ -192,6 +192,38 @@ Every audit entry includes an `input_record_hash` (SHA-256 of the input record) 
 
 This is a common pattern in AI governance systems where regulatory compliance requires evidence preservation.
 
+## Development
+
+All dev tasks (tests, linting, type-checking, formatting) run inside the dev
+container so no Python tooling is required on your host.
+
+### Running tasks
+
+```bash
+make test        # pytest
+make lint        # ruff check
+make typecheck   # mypy
+make format      # ruff format
+make precommit   # all pre-commit hooks
+make shell       # interactive bash session
+```
+
+### Setting up the pre-commit git hook
+
+The pre-commit hook must run inside the dev container so it uses the same tool
+versions as CI. Install it by creating the hook file manually:
+
+```bash
+cat > .git/hooks/pre-commit << 'EOF'
+#!/usr/bin/env bash
+docker compose --profile tools run --rm dev pre-commit run --files "$@"
+EOF
+chmod +x .git/hooks/pre-commit
+```
+
+The hook delegates every commit-time check to the container. No Python, ruff,
+mypy, or pre-commit installation is needed on your host machine.
+
 ## License
 
 Proprietary

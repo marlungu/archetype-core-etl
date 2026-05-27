@@ -16,6 +16,7 @@ can route the failure to the audit log.
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal
@@ -98,8 +99,24 @@ class BedrockClassifier:
         self,
         records: list[FederalDocumentRecord],
         batch_size: int = 25,
+        max_attempts: int = 3,
     ) -> list[ClassificationResult]:
         """Classify ``records`` in chunks of ``batch_size``.
+
+        Individual record failures (empty Bedrock responses, malformed
+        JSON, etc.) are retried up to ``max_attempts - 1`` times and then
+        skipped — they do **not** crash the entire batch.  Skipped
+        records are logged so the DAG can route them to the dead letter
+        queue.
+
+        ``max_attempts=1`` means try once and skip on failure;
+        ``max_attempts=2`` means one retry; ``max_attempts=3`` means two
+        retries; etc.
+
+        Pacing is the caller's responsibility via the ``rate_limiter``
+        parameter passed to :meth:`__init__`.  Without a rate limiter the
+        classifier will hit the Bedrock API as fast as it can, which may
+        trigger throttling on high-volume batches.
 
         Emits a structured cost summary at the end of the run via
         :meth:`CostTracker.emit_summary`.
@@ -108,6 +125,7 @@ class BedrockClassifier:
             raise ValueError("batch_size must be positive")
 
         results: list[ClassificationResult] = []
+        skipped: int = 0
         total = len(records)
         logger.info(
             "bedrock_classifier.classify_batch.start",
@@ -117,17 +135,87 @@ class BedrockClassifier:
                 "batch_size": batch_size,
             },
         )
+
         for offset in range(0, total, batch_size):
             chunk = records[offset : offset + batch_size]
             for record in chunk:
-                results.append(self._classify_one(record))
+                result = self._classify_with_retry(record, max_attempts)
+                if result is not None:
+                    results.append(result)
+                else:
+                    skipped += 1
 
         self._cost_tracker.emit_summary()
         logger.info(
             "bedrock_classifier.classify_batch.complete",
-            extra={"model_id": self._model_id, "total": total},
+            extra={
+                "model_id": self._model_id,
+                "total": total,
+                "classified": len(results),
+                "skipped": skipped,
+            },
         )
         return results
+
+    def _classify_with_retry(
+        self,
+        record: FederalDocumentRecord,
+        max_attempts: int,
+    ) -> ClassificationResult | None:
+        """Try to classify a single record, retrying on transient errors.
+
+        ``max_attempts=1`` means try once and skip on failure;
+        ``max_attempts=2`` means one retry; ``max_attempts=3`` means two
+        retries; etc.
+
+        Returns ``None`` if all attempts fail so the caller can skip the
+        record instead of crashing the batch.
+        """
+        last_error: Exception | None = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                return self._classify_one(record)
+            except ClassificationError as exc:
+                last_error = exc
+                logger.warning(
+                    "bedrock_classifier.attempt_failed",
+                    extra={
+                        "record_id": str(record.record_id),
+                        "attempt": attempt,
+                        "max_attempts": max_attempts,
+                        "error": str(exc),
+                    },
+                )
+                logger.warning(
+                    "bedrock_classifier.retry",
+                    extra={
+                        "record_id": str(record.record_id),
+                        "attempt": attempt,
+                        "max_attempts": max_attempts,
+                        "error": str(exc),
+                    },
+                )
+                if attempt < max_attempts:
+                    backoff = 10.0 * attempt  # aggressive back-off for throttling
+                    logger.info(
+                        "bedrock_classifier.backoff",
+                        extra={
+                            "record_id": str(record.record_id),
+                            "backoff_seconds": backoff,
+                        },
+                    )
+                    time.sleep(backoff)
+
+        # All attempts exhausted — skip this record
+        logger.error(
+            "bedrock_classifier.record_skipped",
+            extra={
+                "record_id": str(record.record_id),
+                "error": str(last_error),
+                "attempts_made": max_attempts,
+            },
+        )
+        return None
 
     def _classify_one(self, record: FederalDocumentRecord) -> ClassificationResult:
         user_message = self._build_user_message(record)

@@ -31,12 +31,13 @@ archetype-core-etl ingests federal document records from S3 and Kinesis, normali
 archetype-core-etl/
 ├── AGENTS.md            # Repository instructions for Codex and AI-assisted coding
 ├── CLAUDE.md            # Claude-specific project guidance
-├── 00_CONTEXT/          # Project context, scope, assumptions, and glossary
-├── 01_SYSTEM/           # System architecture, data contracts, infrastructure, and controls
-├── 02_AGENT_ROLES/      # Role-specific instructions for agents
-├── 03_PROMPTS/          # Prompt guidance, prompt changelog, and evaluation notes
-├── 04_WORKFLOW/         # Runbooks, change process, release checks, and incident flow
-├── 05_OUTPUTS/          # Audit outputs, evidence templates, reports, and handoff notes
+├── .github/             # GitHub Actions workflow configuration
+├── 00_CONTEXT/          # README.md, project-brief.md, glossary.md, decisions.md
+├── 01_SYSTEM/           # README.md, system-overview.md, data-contracts.md, security-and-controls.md
+├── 02_AGENT_ROLES/      # README.md, data-engineer.md, infra-operator.md, ai-governance-reviewer.md
+├── 03_PROMPTS/          # README.md, prompt-change-policy.md, evaluation-notes.md
+├── 04_WORKFLOW/         # README.md, change-checklist.md, release-checklist.md, incident-runbook.md, task-board.md
+├── 05_OUTPUTS/          # README.md, audit-evidence-template.md, handoff-template.md
 ├── src/archetype_core_etl/
 │   ├── config/          # Pydantic BaseSettings, env-driven configuration
 │   ├── common/          # Structured JSON logging, exception hierarchy
@@ -54,14 +55,11 @@ archetype-core-etl/
 ├── tests/
 │   ├── unit/            # Schema, normalizer, quality gate, cost tracker, dead letter, prompt versioning
 │   └── fixtures/        # Shared test fixtures
-├── config/              # Environment-specific configuration (dev/, staging/, prod/)
-├── data/                # Placeholder directories for raw/, interim/, processed/, external/ data
-├── docs/                # Architecture diagrams (architecture/), ADRs (adr/), runbooks (runbooks/)
-├── notebooks/           # Databricks notebooks (exploratory/, production/)
-├── .github/             # GitHub Actions CI workflow (workflows/ci.yml)
+├── data/                # Placeholder directories for external/, interim/, processed/ data
+├── docs/                # Architecture diagrams under architecture/
 ├── docker-compose.yml   # Full Airflow stack with Celery executor
-├── pyproject.toml       # Build config, dependencies, ruff/mypy/pytest settings
-└── .pre-commit-config.yaml  # ruff, mypy, secret detection hooks
+├── docker-compose.override.yml.example  # Optional local service overrides
+└── pyproject.toml       # Build config, dependencies, ruff/mypy/pytest settings
 ```
 
 ## Project Operating System
@@ -70,14 +68,16 @@ This repository includes a lightweight operating system for governed, AI-assiste
 
 - `AGENTS.md` defines shared repo rules for Codex and AI-assisted coding.
 - `CLAUDE.md` bridges Claude into the same project rules.
-- `00_CONTEXT/` captures the project brief, business goal, decisions, and glossary.
-- `01_SYSTEM/` documents system architecture, data contracts, infrastructure, and controls.
-- `02_AGENT_ROLES/` contains role-specific instructions for agents.
-- `03_PROMPTS/` stores prompt guidance, prompt changelog, and evaluation notes.
-- `04_WORKFLOW/` contains runbooks, change process, release checks, and incident flow.
-- `05_OUTPUTS/` holds audit outputs, evidence templates, reports, and handoff notes.
+- `00_CONTEXT/` contains `README.md`, `project-brief.md`, `glossary.md`, and `decisions.md`.
+- `01_SYSTEM/` contains `README.md`, `system-overview.md`, `data-contracts.md`, and `security-and-controls.md`.
+- `02_AGENT_ROLES/` contains `README.md`, `data-engineer.md`, `infra-operator.md`, and `ai-governance-reviewer.md`.
+- `03_PROMPTS/` contains `README.md`, `prompt-change-policy.md`, and `evaluation-notes.md`.
+- `04_WORKFLOW/` contains `README.md`, `change-checklist.md`, `release-checklist.md`, `incident-runbook.md`, and `task-board.md`.
+- `05_OUTPUTS/` contains `README.md`, `audit-evidence-template.md`, and `handoff-template.md`.
 
 The goal is to keep the project explainable, testable, and traceable as it evolves.
+
+Before completing documentation or operating-system work, use `rg --files` to confirm referenced repo file paths exist. Do not reference missing files. If a required file is missing, create it or update the instruction to point to the real file.
 
 ## Local Development
 

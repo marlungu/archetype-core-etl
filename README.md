@@ -29,6 +29,14 @@ archetype-core-etl ingests federal document records from S3 and Kinesis, normali
 
 ```
 archetype-core-etl/
+├── AGENTS.md            # Repository instructions for Codex and AI-assisted coding
+├── CLAUDE.md            # Claude-specific project guidance
+├── 00_CONTEXT/          # Project context, scope, assumptions, and glossary
+├── 01_SYSTEM/           # System architecture, data contracts, infrastructure, and controls
+├── 02_AGENT_ROLES/      # Role-specific instructions for agents
+├── 03_PROMPTS/          # Prompt guidance, prompt changelog, and evaluation notes
+├── 04_WORKFLOW/         # Runbooks, change process, release checks, and incident flow
+├── 05_OUTPUTS/          # Audit outputs, evidence templates, reports, and handoff notes
 ├── src/archetype_core_etl/
 │   ├── config/          # Pydantic BaseSettings, env-driven configuration
 │   ├── common/          # Structured JSON logging, exception hierarchy
@@ -55,6 +63,21 @@ archetype-core-etl/
 ├── pyproject.toml       # Build config, dependencies, ruff/mypy/pytest settings
 └── .pre-commit-config.yaml  # ruff, mypy, secret detection hooks
 ```
+
+## Project Operating System
+
+This repository includes a lightweight operating system for governed, AI-assisted engineering work.
+
+- `AGENTS.md` defines shared repo rules for Codex and AI-assisted coding.
+- `CLAUDE.md` bridges Claude into the same project rules.
+- `00_CONTEXT/` captures the project brief, business goal, decisions, and glossary.
+- `01_SYSTEM/` documents system architecture, data contracts, infrastructure, and controls.
+- `02_AGENT_ROLES/` contains role-specific instructions for agents.
+- `03_PROMPTS/` stores prompt guidance, prompt changelog, and evaluation notes.
+- `04_WORKFLOW/` contains runbooks, change process, release checks, and incident flow.
+- `05_OUTPUTS/` holds audit outputs, evidence templates, reports, and handoff notes.
+
+The goal is to keep the project explainable, testable, and traceable as it evolves.
 
 ## Local Development
 

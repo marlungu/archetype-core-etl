@@ -19,12 +19,12 @@ It uses:
 
 Use these folders for project operating docs:
 
-- `00_CONTEXT/` - project context, scope, assumptions, and glossary
-- `01_SYSTEM/` - system architecture, data contracts, infrastructure, and controls
-- `02_AGENT_ROLES/` - role-specific instructions for agents
-- `03_PROMPTS/` - prompt guidance, prompt changelog, and evaluation notes
-- `04_WORKFLOW/` - runbooks, change process, release checks, and incident flow
-- `05_OUTPUTS/` - audit outputs, evidence templates, reports, and handoff notes
+- `00_CONTEXT/` - project context: `README.md`, `project-brief.md`, `glossary.md`, `decisions.md`
+- `01_SYSTEM/` - system architecture, data contracts, and controls: `README.md`, `system-overview.md`, `data-contracts.md`, `security-and-controls.md`
+- `02_AGENT_ROLES/` - role-specific instructions for agents: `README.md`, `data-engineer.md`, `infra-operator.md`, `ai-governance-reviewer.md`
+- `03_PROMPTS/` - prompt guidance and evaluation notes: `README.md`, `prompt-change-policy.md`, `evaluation-notes.md`
+- `04_WORKFLOW/` - workflow and runbooks: `README.md`, `change-checklist.md`, `release-checklist.md`, `incident-runbook.md`, `task-board.md`
+- `05_OUTPUTS/` - audit outputs and handoff notes: `README.md`, `audit-evidence-template.md`, `handoff-template.md`
 
 Do not put application source code in these folders.
 
@@ -39,6 +39,15 @@ Do not put application source code in these folders.
 - Prefer existing project patterns.
 - Use plain language.
 - Do not use em dashes.
+
+## Documentation Consistency
+
+Before completing documentation or operating-system work:
+
+- Use `rg --files` to check actual filenames before adding links or path references.
+- Confirm every referenced repo file path exists.
+- Do not reference files that do not exist.
+- If a required file is missing, either create it or update the instruction to point to the real file.
 
 ## Commands
 

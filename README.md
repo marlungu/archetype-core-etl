@@ -13,37 +13,32 @@ archetype-core-etl ingests federal document records from S3 and Kinesis, normali
 
 | Technology | Version | Purpose |
 |---|---|---|
-| Python | 3.12+ | Core runtime for extract, transform, classify, and load modules |
+| Python | 3.12+ (CI runs 3.13) | Core runtime for extract, transform, classify, and load modules |
 | Apache Airflow | 3.2 | DAG orchestration — batch and streaming pipeline scheduling |
-| Amazon MWAA | 3.0.2 | Managed Airflow in production — `mw1.small` workers, `PUBLIC_ONLY` endpoint |
+| Amazon MWAA | 3.0.2 (`mw1.small`) | Managed Airflow in production. MWAA supports 3.2 as of May 2026; this module pins 3.0.2 and can be bumped. |
 | Amazon Bedrock (Claude Sonnet 4.6) | `us.anthropic.claude-sonnet-4-6` | Compliance classification with structured JSON output |
-| Databricks Delta Lake | SDK ~0.105 | Bronze/Gold table storage via Statement Execution API |
+| Databricks Delta Lake | SDK ~0.105 | Bronze/Gold table storage via Statement Execution API (Pro SQL warehouses only) |
 | PostgreSQL | 16.13 | Audit trail persistence with `execute_values` batch inserts |
 | Great Expectations | 1.17+ (fluent API) | Data quality validation — agency, priority, schema enforcement |
 | Terraform | AWS ~5.0 / Databricks ~1.40 | Infrastructure provisioning — S3, IAM, RDS, MWAA, networking |
 | Docker Compose | — | Local development stack — Airflow, Postgres, Redis, LocalStack |
 
-> **Version note:** Docker Compose runs Airflow 3.2.0 locally. AWS MWAA supports Airflow 3.0.2 in production. DAGs are compatible with both versions.
+> **Version note:** Airflow runs 3.2 locally. The MWAA module targets 3.0.2; MWAA also supports 3.2 as of May 2026, so the module can move to 3.2 when desired. DAGs run on both.
 
 ## Repository Layout
 
 ```
 archetype-core-etl/
-├── AGENTS.md            # Repository instructions for Codex and AI-assisted coding
-├── CLAUDE.md            # Claude-specific project guidance
+├── CLAUDE.md            # Project guidance and conventions for AI-assisted development
+├── .devcontainer/       # Reproducible dev container (Python venv + default-deny firewall)
+├── .claude/             # Claude Code agent factory: agents, skills, hooks
 ├── .github/             # GitHub Actions workflow configuration
-├── 00_CONTEXT/          # README.md, project-brief.md, glossary.md, decisions.md
-├── 01_SYSTEM/           # README.md, system-overview.md, data-contracts.md, security-and-controls.md
-├── 02_AGENT_ROLES/      # README.md, data-engineer.md, infra-operator.md, ai-governance-reviewer.md
-├── 03_PROMPTS/          # README.md, prompt-change-policy.md, evaluation-notes.md
-├── 04_WORKFLOW/         # README.md, change-checklist.md, release-checklist.md, incident-runbook.md, task-board.md
-├── 05_OUTPUTS/          # README.md, audit-evidence-template.md, handoff-template.md
 ├── src/archetype_core_etl/
 │   ├── config/          # Pydantic BaseSettings, env-driven configuration
-│   ├── common/          # Structured JSON logging, exception hierarchy
+│   ├── common/          # Structured JSON logging, exception hierarchy, AWS helpers, dead letter
 │   ├── extract/         # S3Reader, KinesisReader, FederalDocumentRecord schema
-│   ├── transform/       # Record normalizer, Great Expectations quality gate
-│   ├── classify/        # BedrockClassifier, token-bucket rate limiter, cost tracker
+│   ├── transform/       # field_presence, record normalizer, Great Expectations quality gate
+│   ├── classify/        # BedrockClassifier, token-bucket rate limiter, cost tracker, versioned prompts
 │   └── load/            # DeltaWriter (parameterized SQL), AuditWriter (psycopg2)
 ├── dags/
 │   ├── common/          # Shared DAG default_args, XCom serialization helpers
@@ -53,31 +48,27 @@ archetype-core-etl/
 ├── scripts/             # generate_data.py, init-db.sql, init-localstack.sh, setup-local.sh,
 │                        #   docker-entrypoint-init.sh, update-databricks-tables.sql
 ├── tests/
-│   ├── unit/            # Schema, normalizer, quality gate, cost tracker, dead letter, prompt versioning
+│   ├── unit/            # Per-module unit tests
+│   ├── integration/     # External-system tests (marked slow)
+│   ├── acceptance/      # Spec-level acceptance tests
 │   └── fixtures/        # Shared test fixtures
 ├── data/                # Placeholder directories for external/, interim/, processed/ data
-├── docs/                # Architecture diagrams under architecture/
+├── docs/                # Architecture diagrams, runbooks, ADRs
 ├── docker-compose.yml   # Full Airflow stack with Celery executor
 ├── docker-compose.override.yml.example  # Optional local service overrides
 └── pyproject.toml       # Build config, dependencies, ruff/mypy/pytest settings
 ```
 
-## Project Operating System
+## AI-Assisted Development
 
-This repository includes a lightweight operating system for governed, AI-assisted engineering work.
+This repository is built with a structured Claude Code agent chain rather than ad-hoc prompting. The chain enforces the same discipline a human engineering team would: research before building, a written spec approved by a human, scoped implementation, acceptance tests, and an independent validation pass.
 
-- `AGENTS.md` defines shared repo rules for Codex and AI-assisted coding.
-- `CLAUDE.md` bridges Claude into the same project rules.
-- `00_CONTEXT/` contains `README.md`, `project-brief.md`, `glossary.md`, and `decisions.md`.
-- `01_SYSTEM/` contains `README.md`, `system-overview.md`, `data-contracts.md`, and `security-and-controls.md`.
-- `02_AGENT_ROLES/` contains `README.md`, `data-engineer.md`, `infra-operator.md`, and `ai-governance-reviewer.md`.
-- `03_PROMPTS/` contains `README.md`, `prompt-change-policy.md`, and `evaluation-notes.md`.
-- `04_WORKFLOW/` contains `README.md`, `change-checklist.md`, `release-checklist.md`, `incident-runbook.md`, and `task-board.md`.
-- `05_OUTPUTS/` contains `README.md`, `audit-evidence-template.md`, and `handoff-template.md`.
+- `.claude/agents/` — five scoped subagents: researcher (read-only codebase mapping), spec-writer (technical spec with acceptance criteria), pipeline-builder (implementation), test-verifier (acceptance tests), validator (read-only final audit).
+- `.claude/skills/feature-factory/` — the orchestrator that runs the chain with two human approval checkpoints.
+- `.claude/hooks/pre-commit-secrets.sh` — blocks commits containing AWS keys, Databricks PATs, or other credential patterns.
+- `.devcontainer/` — runs the agent chain inside an isolated container with an in-container Python venv and a default-deny outbound firewall that allows only the API endpoints the chain needs.
 
-The goal is to keep the project explainable, testable, and traceable as it evolves.
-
-Before completing documentation or operating-system work, use `rg --files` to confirm referenced repo file paths exist. Do not reference missing files. If a required file is missing, create it or update the instruction to point to the real file.
+`CLAUDE.md` holds the project conventions every agent reads. The goal is software that is explainable, testable, and traceable as it evolves.
 
 ## Local Development
 
@@ -97,35 +88,19 @@ This single command will:
 1. Generate a `.env` file with auto-generated secrets
 2. Start Postgres, Redis, LocalStack, and the full Airflow stack (webserver, scheduler, triggerer, Celery worker)
 3. Run DB migrations and create the Airflow admin user
-4. Create S3 buckets in LocalStack and seed 500 synthetic test records
+4. Create S3 buckets in LocalStack and seed synthetic test records
 5. Print the Airflow UI URL and login credentials
 
 ### Step-by-step setup
 
 ```bash
-# 1. Generate .env with auto-generated secrets
-make setup
-
-# 2. Start all services and seed data
-make up
-
-# 3. Open Airflow UI
-open http://localhost:8080    # admin / admin
-
-# 4. Generate more test data
-make generate
-
-# 5. Run tests
-make test
-
-# 6. View service logs
-make logs
-
-# 7. Tear down (preserves data volumes)
-make down
-
-# 8. Full cleanup (removes volumes and .env)
-make clean
+make setup    # Generate .env with auto-generated secrets
+make up       # Start all services and seed data
+open http://localhost:8080    # Airflow UI (admin / admin)
+make generate # Generate more test data
+make check    # Run the full gate: tests + lint + typecheck
+make down     # Tear down (preserves data volumes)
+make clean    # Full cleanup (removes volumes and .env)
 ```
 
 ### Available make targets
@@ -140,23 +115,25 @@ Run `make help` to see all targets:
 | `make down` | Stop all services |
 | `make restart` | Stop and restart all services |
 | `make demo` | Full setup + start (runs setup then up) |
-| `make test` | Install dev dependencies and run pytest |
-| `make lint` | Run ruff linter |
-| `make typecheck` | Run mypy type checker |
-| `make generate` | Generate 1000 synthetic test records |
+| `make check` | Run test + lint + typecheck together (the full CI gate) |
+| `make test` | Run pytest |
+| `make lint` | Run ruff check |
+| `make typecheck` | Run mypy |
+| `make format` | Format source via ruff |
+| `make generate` | Generate synthetic test records |
 | `make logs` | Tail service logs |
 | `make ps` | Show running services |
 | `make clean` | Remove all containers, volumes, and .env |
 
+The `check`, `test`, `lint`, and `typecheck` targets detect their context: on the host they run through `docker compose --profile tools`; inside the dev container they run the tools directly. No Python tooling is required on your host.
+
 ### DAG processor (Airflow 3.x)
 
-Airflow 3.x requires a separate DAG processor service for the UI to detect DAGs. The base `docker-compose.yml` does not include it — create a `docker-compose.override.yml` with the DAG processor service and bind mounts for `dags/` and `src/`:
+Airflow 3.x requires a separate DAG processor service for the UI to detect DAGs. The base `docker-compose.yml` does not include it — copy the example override and add the DAG processor service with bind mounts for `dags/` and `src/`:
 
 ```bash
 cp docker-compose.override.yml.example docker-compose.override.yml
 ```
-
-Then edit it to add the DAG processor and PYTHONPATH. See the project wiki for the full override template.
 
 ### Exposing services on the host
 
@@ -167,7 +144,7 @@ By default, only the Airflow UI (port 8080) is exposed. To access Postgres, Redi
 Generate synthetic records matching the `FederalDocumentRecord` schema for local development and testing.
 
 ```bash
-# Default: 1000 records to data/raw/YYYY/MM/DD/
+# Default: records to data/raw/YYYY/MM/DD/
 python scripts/generate_data.py
 
 # Reproducible run with custom count
@@ -183,10 +160,12 @@ Records follow weighted distributions: 70/20/10% priority tiers (standard/expedi
 
 - **SecretStr for all credentials** — database URLs, AWS keys, and execution role ARNs are `pydantic.SecretStr` fields, excluded from `repr` and logs by default.
 - **No hardcoded secret defaults** — every secret field is required and raises `ValidationError` if missing from the environment.
+- **No infrastructure identifiers in source** — account IDs, workspace URLs, warehouse IDs, and bucket names live in gitignored `.env` and `terraform.tfvars`, read from the environment at runtime.
 - **Audit trail per record** — every classification result is written to the PostgreSQL audit table with timestamps, cost, and model metadata.
 - **Bandit static analysis in CI** — ruff's `S` (flake8-bandit) rule set runs on every push and pull request.
 - **SHA-pinned GitHub Actions** — all CI actions are pinned to full commit SHAs to prevent supply-chain attacks via tag mutation.
 - **Parameterized SQL in Databricks** — Delta Lake writes use the Statement Execution API's native `parameters` field with `StatementParameterListItem`. No external values are interpolated into SQL strings.
+- **Isolated agent execution** — AI-assisted development runs inside a dev container with a default-deny outbound firewall and a pre-commit secrets hook.
 
 ## Architecture Decisions
 
@@ -208,44 +187,7 @@ The Delta Lake writer originally constructed SQL `VALUES` clauses via Python str
 
 ### ADR-5: Audit trail hashing for evidence integrity
 
-Every audit entry includes an `input_record_hash` (SHA-256 of the input record) and a `prompt_hash` (SHA-256 of the system prompt). This provides cryptographic proof that:
-- The input record was not modified after classification
-- The exact prompt version that generated the result can be identified
-- Changes to the prompt are detectable across pipeline runs
-
-This is a common pattern in AI governance systems where regulatory compliance requires evidence preservation.
-
-## Development
-
-All dev tasks (tests, linting, type-checking, formatting) run inside the dev
-container so no Python tooling is required on your host.
-
-### Running tasks
-
-```bash
-make test        # pytest
-make lint        # ruff check
-make typecheck   # mypy
-make format      # ruff format
-make precommit   # all pre-commit hooks
-make shell       # interactive bash session
-```
-
-### Setting up the pre-commit git hook
-
-The pre-commit hook must run inside the dev container so it uses the same tool
-versions as CI. Install it by creating the hook file manually:
-
-```bash
-cat > .git/hooks/pre-commit << 'EOF'
-#!/usr/bin/env bash
-docker compose --profile tools run --rm dev pre-commit run --files "$@"
-EOF
-chmod +x .git/hooks/pre-commit
-```
-
-The hook delegates every commit-time check to the container. No Python, ruff,
-mypy, or pre-commit installation is needed on your host machine.
+Every audit entry includes an `input_record_hash` (SHA-256 of the input record) and a `prompt_hash` (SHA-256 of the system prompt). This provides cryptographic proof that the input record was not modified after classification, that the exact prompt version that generated the result can be identified, and that changes to the prompt are detectable across pipeline runs. This is a common pattern in AI governance systems where regulatory compliance requires evidence preservation.
 
 ## License
 

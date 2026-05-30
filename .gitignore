@@ -172,7 +172,6 @@ docker-compose.override.yml
 
 # ---------- Project-specific ----------
 !.env.example
-CLAUDE.md
 
 # Local AI agent config
 # Claude Code: track shared agents/skills/hooks/settings, ignore local state and worktrees
@@ -187,6 +186,4 @@ CLAUDE.md
 # Local export archives
 *.zip
 .codex/
-.claude-runtime/
-.devcontainer/init-firewall.sh
 .claude-runtime/

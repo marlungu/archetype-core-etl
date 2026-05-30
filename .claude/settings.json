@@ -1,4 +1,25 @@
 {
+  "sandbox": {
+    "enabled": false
+  },
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Edit",
+      "Write",
+      "Read"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Edit(./.env)",
+      "Edit(./.env.*)",
+      "Write(./.env)",
+      "Write(./.env.*)",
+      "Read(./infrastructure/terraform/**/*.tfstate)",
+      "Edit(./infrastructure/terraform/**)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {

@@ -50,6 +50,21 @@ _DATASOURCE_NAME = "archetype_pandas"
 _ASSET_NAME = "federal_document_batch"
 _BATCH_DEFINITION_NAME = "whole_dataframe"
 
+# Confidence bands for classification routing. A score at or above
+# AUTO_APPROVE_THRESHOLD clears the human review gate; a score below
+# REJECT_THRESHOLD is too weak to act on and is dropped. Everything in
+# between goes to a human reviewer.
+AUTO_APPROVE_THRESHOLD = 0.85
+REJECT_THRESHOLD = 0.60
+
+
+@dataclass(frozen=True)
+class BandDecision:
+    """A confidence band plus a short human-readable reason for the routing."""
+
+    band: str
+    reason: str
+
 
 @dataclass
 class GateResult:
@@ -166,4 +181,41 @@ class QualityGate:
         )
 
 
-__all__ = ["GateResult", "QualityGate"]
+def confidence_band(confidence: float) -> BandDecision:
+    """Route a classification by its confidence score.
+
+    Returns a :class:`BandDecision` carrying both the band and a short
+    reason. The band is ``"auto_approve"`` for a score at or above
+    ``AUTO_APPROVE_THRESHOLD``, ``"reject"`` for a score below
+    ``REJECT_THRESHOLD``, and ``"human_review"`` for anything in between.
+    Scores outside the closed interval ``[0.0, 1.0]`` are a programming
+    error and raise :class:`ValueError`.
+    """
+    if not 0.0 <= confidence <= 1.0:
+        raise ValueError(f"confidence must be in [0.0, 1.0], got {confidence}")
+    if confidence >= AUTO_APPROVE_THRESHOLD:
+        return BandDecision(
+            band="auto_approve",
+            reason=f"confidence {confidence} at or above auto-approve threshold "
+            f"{AUTO_APPROVE_THRESHOLD}",
+        )
+    if confidence < REJECT_THRESHOLD:
+        return BandDecision(
+            band="reject",
+            reason=f"confidence {confidence} below reject threshold {REJECT_THRESHOLD}",
+        )
+    return BandDecision(
+        band="human_review",
+        reason=f"confidence {confidence} between reject threshold {REJECT_THRESHOLD} "
+        f"and auto-approve threshold {AUTO_APPROVE_THRESHOLD}",
+    )
+
+
+__all__ = [
+    "AUTO_APPROVE_THRESHOLD",
+    "REJECT_THRESHOLD",
+    "BandDecision",
+    "GateResult",
+    "QualityGate",
+    "confidence_band",
+]

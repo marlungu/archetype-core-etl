@@ -1,0 +1,59 @@
+{
+  "name": "archetype-core-etl",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+
+  "runArgs": [
+    "--cap-drop=ALL",
+    "--cap-add=NET_ADMIN",
+    "--cap-add=NET_RAW",
+    "--cap-add=SETUID",
+    "--cap-add=SETGID",
+    "--cap-add=AUDIT_WRITE"  ],
+
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+  },
+
+  "mounts": [
+    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"
+  ],
+
+  "remoteEnv": {
+    "CLAUDE_CONFIG_DIR": "/workspaces/archetype-core-etl/.claude-runtime",
+    "DISABLE_TELEMETRY": "1",
+    "DISABLE_ERROR_REPORTING": "1",
+    "DISABLE_BUG_COMMAND": "1",
+    "ENVIRONMENT": "local",
+    "AWS_ENDPOINT_URL": "http://host.docker.internal:4566",
+    "POSTGRES_HOST": "host.docker.internal"
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "ms-azuretools.vscode-docker",
+        "hashicorp.terraform"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/opt/venv/bin/python",
+        "python.testing.pytestEnabled": true,
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "remote.autoForwardPorts": false,
+        "remote.restoreForwardedPorts": false
+      }
+    }
+  },
+
+  "remoteUser": "vscode",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "postStartCommand": "sudo bash .devcontainer/init-firewall.sh"
+}

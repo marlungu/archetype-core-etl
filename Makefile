@@ -1,5 +1,10 @@
-.PHONY: help setup up down restart logs ps test lint typecheck format shell precommit generate demo clean cloud-cost-check cloud-up cloud-down cloud-destroy-all
+.PHONY: help setup up down restart logs ps test lint typecheck check format shell precommit generate demo clean cloud-cost-check cloud-up cloud-down cloud-destroy-all
 .DEFAULT_GOAL := help
+
+# Detect whether we're already inside a container (devcontainer or CI).
+# On the host, route through docker compose --profile tools as before.
+# Inside a container there's no docker daemon, so run the tools directly.
+IN_CONTAINER := $(shell [ -f /.dockerenv ] && echo yes || echo no)
 
 # Print all available targets
 help:
@@ -9,12 +14,13 @@ help:
 	@printf "  \033[36mdown\033[0m        Stop all services\n"
 	@printf "  \033[36mrestart\033[0m     Stop and restart all services\n"
 	@printf "  \033[36mdemo\033[0m        Full setup + start (runs setup then up)\n"
-	@printf "  \033[36mtest\033[0m        Run pytest inside the dev container\n"
-	@printf "  \033[36mlint\033[0m        Run ruff check (read-only) inside the dev container\n"
-	@printf "  \033[36mtypecheck\033[0m   Run mypy inside the dev container\n"
+	@printf "  \033[36mtest\033[0m        Run pytest (host: dev container · in-container: direct)\n"
+	@printf "  \033[36mlint\033[0m        Run ruff check, read-only (host: dev container · in-container: direct)\n"
+	@printf "  \033[36mtypecheck\033[0m   Run mypy (host: dev container · in-container: direct)\n"
+	@printf "  \033[36mcheck\033[0m       Run test + lint + typecheck together (matches CI gates)\n"
 	@printf "  \033[36mformat\033[0m      Format source via ruff (uses dev-write service; the only service with writable mounts)\n"
 	@printf "  \033[36mshell\033[0m       Open an interactive shell in the dev container\n"
-	@printf "  \033[36mprecommit\033[0m   Run all pre-commit hooks inside the dev container\n"
+	@printf "  \033[36mprecommit\033[0m   Run all pre-commit hooks (host: dev container · in-container: direct)\n"
 	@printf "  \033[36mgenerate\033[0m    Generate 1000 synthetic test records\n"
 	@printf "  \033[36mlogs\033[0m        Tail service logs\n"
 	@printf "  \033[36mps\033[0m          Show running services\n"
@@ -77,17 +83,35 @@ logs:
 ps:
 	@docker compose ps
 
-# Run tests inside the dev container
+# Run tests — host routes through the dev container, in-container runs direct
 test:
+ifeq ($(IN_CONTAINER),yes)
+	@python -m pytest
+else
 	@docker compose --profile tools run --rm dev pytest
+endif
 
-# Run linter (check-only, no fixes) inside the dev container
+# Run linter (check-only, no fixes)
 lint:
+ifeq ($(IN_CONTAINER),yes)
+	@ruff check --no-fix src/ tests/ dags/
+else
 	@docker compose --profile tools run --rm dev ruff check --no-fix src/ tests/ dags/
+endif
 
-# Run type checker inside the dev container
+# Run type checker
 typecheck:
+ifeq ($(IN_CONTAINER),yes)
+	@mypy src/ dags/
+else
 	@docker compose --profile tools run --rm dev mypy src/ dags/
+endif
+
+# Run the full gate: test + lint + typecheck (what CI checks)
+check:
+	@$(MAKE) test
+	@$(MAKE) lint
+	@$(MAKE) typecheck
 
 # Format source via ruff — uses dev-write (writable mounts), the only service
 # allowed to modify source files. dev uses read-only mounts for everything else.
@@ -99,9 +123,13 @@ format:
 shell:
 	@docker compose --profile tools run --rm dev bash
 
-# Run all pre-commit hooks inside the dev container
+# Run all pre-commit hooks
 precommit:
+ifeq ($(IN_CONTAINER),yes)
+	@pre-commit run --all-files
+else
 	@docker compose --profile tools run --rm dev pre-commit run --all-files
+endif
 
 # Generate synthetic data
 generate:

@@ -182,5 +182,11 @@ CLAUDE.md
 !.claude/skills/
 !.claude/settings.json
 
+.claude-runtime/
+
 # Local export archives
 *.zip
+.codex/
+.claude-runtime/
+.devcontainer/init-firewall.sh
+.claude-runtime/

@@ -91,9 +91,7 @@ class TestConfidenceBand:
     def test_low_confidence_rejects(self):
         result = confidence_band(0.40)
         assert result.band == "reject"
-        assert result.reason == (
-            f"confidence {0.40} below reject threshold {REJECT_THRESHOLD}"
-        )
+        assert result.reason == (f"confidence {0.40} below reject threshold {REJECT_THRESHOLD}")
 
     def test_auto_approve_threshold_is_inclusive(self):
         result = confidence_band(AUTO_APPROVE_THRESHOLD)
@@ -123,9 +121,7 @@ class TestConfidenceBand:
     def test_just_below_reject_threshold_rejects(self):
         result = confidence_band(0.5999)
         assert result.band == "reject"
-        assert result.reason == (
-            f"confidence {0.5999} below reject threshold {REJECT_THRESHOLD}"
-        )
+        assert result.reason == (f"confidence {0.5999} below reject threshold {REJECT_THRESHOLD}")
 
     def test_returns_band_decision(self):
         assert isinstance(confidence_band(0.95), BandDecision)

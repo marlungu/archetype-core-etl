@@ -27,8 +27,7 @@ def test_high_confidence_auto_approves() -> None:
     result = confidence_band(confidence)
     assert result.band == "auto_approve"
     assert result.reason == (
-        f"confidence {confidence} at or above auto-approve threshold "
-        f"{AUTO_APPROVE_THRESHOLD}"
+        f"confidence {confidence} at or above auto-approve threshold {AUTO_APPROVE_THRESHOLD}"
     )
 
 
@@ -48,9 +47,7 @@ def test_low_confidence_rejects() -> None:
     confidence = 0.40
     result = confidence_band(confidence)
     assert result.band == "reject"
-    assert result.reason == (
-        f"confidence {confidence} below reject threshold {REJECT_THRESHOLD}"
-    )
+    assert result.reason == (f"confidence {confidence} below reject threshold {REJECT_THRESHOLD}")
 
 
 # Criterion 4: the auto-approve threshold itself is inclusive.
@@ -79,9 +76,7 @@ def test_just_below_reject_threshold_rejects() -> None:
 def test_out_of_range_confidence_raises(bad_confidence: float) -> None:
     with pytest.raises(ValueError) as excinfo:
         confidence_band(bad_confidence)
-    assert str(excinfo.value) == (
-        f"confidence must be in [0.0, 1.0], got {bad_confidence}"
-    )
+    assert str(excinfo.value) == (f"confidence must be in [0.0, 1.0], got {bad_confidence}")
 
 
 # Criterion 9: the return type is BandDecision.

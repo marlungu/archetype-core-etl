@@ -67,7 +67,7 @@ When a value is needed, read it from the environment at runtime. Do not hardcode
 
 - Bedrock model: Claude Sonnet 4.6
 - Databricks catalog: `archetype_core` (auto-created at workspace provisioning — NOT `archetype_etl`)
-- Databricks schema: `default`
+- Databricks schema: `governed`
 - Databricks tables: `classifications_bronze`, `classifications_gold` (Delta format)
 
 ## Architecture rules

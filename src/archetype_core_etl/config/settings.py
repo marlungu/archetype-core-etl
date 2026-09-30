@@ -98,7 +98,7 @@ class DatabricksSettings(BaseSettings):
     host: str = Field(..., description="Databricks workspace URL.")
     warehouse_id: str = Field(..., description="SQL warehouse ID for statement execution.")
     catalog: str = Field(..., description="Unity Catalog catalog name.")
-    schema_name: str = Field(default="default", description="Unity Catalog schema name.")
+    schema_name: str = Field(default="governed", description="Unity Catalog schema name.")
 
 
 class BedrockSettings(BaseSettings):

@@ -7,7 +7,7 @@ Airflow-orchestrated, Databricks-powered ETL platform for processing federal doc
 
 ## Overview
 
-archetype-core-etl ingests federal document records from S3 and Kinesis, normalizes and validates them through a Great Expectations quality gate, classifies each record for compliance risk using Amazon Bedrock (Claude Sonnet 4.6), and writes the results to Databricks Delta Lake tables with a full PostgreSQL audit trail. The system runs as two Airflow DAGs — a six-hourly batch pipeline and a five-minute streaming micro-batch pipeline — both deployed via Docker Compose locally and MWAA in production. All infrastructure is provisioned with Terraform.
+archetype-core-etl ingests federal document records from S3 and Kinesis, normalizes and validates them through a Great Expectations quality gate, classifies each record for compliance risk using Amazon Bedrock (Claude Sonnet 4.6), and writes the results to Databricks Delta Lake tables with a full PostgreSQL audit trail. The system runs as two Airflow DAGs — a six-hourly batch pipeline and a five-minute streaming micro-batch pipeline — with Docker Compose for local execution and Terraform modules documenting an MWAA deployment path. The repository is a reference implementation, not a client production deployment.
 
 ## Stack
 
@@ -15,9 +15,9 @@ archetype-core-etl ingests federal document records from S3 and Kinesis, normali
 |---|---|---|
 | Python | 3.12+ (CI runs 3.13) | Core runtime for extract, transform, classify, and load modules |
 | Apache Airflow | 3.2 | DAG orchestration — batch and streaming pipeline scheduling |
-| Amazon MWAA | 3.0.2 (`mw1.small`) | Managed Airflow in production. MWAA supports 3.2 as of May 2026; this module pins 3.0.2 and can be bumped. |
+| Amazon MWAA | 3.0.2 (`mw1.small`) | Managed Airflow deployment target. MWAA supports 3.2 as of May 2026; this module pins 3.0.2 and can be bumped. |
 | Amazon Bedrock (Claude Sonnet 4.6) | `us.anthropic.claude-sonnet-4-6` | Compliance classification with structured JSON output |
-| Databricks Delta Lake | SDK ~0.105 | Bronze/Gold table storage via Statement Execution API (Pro SQL warehouses only) |
+| Databricks Delta Lake | SDK ~0.105 | Bronze/Gold Delta storage via Statement Execution API, plus a governed PySpark transformation reference |
 | PostgreSQL | 16.13 | Audit trail persistence with `execute_values` batch inserts |
 | Great Expectations | 1.17+ (fluent API) | Data quality validation — agency, priority, schema enforcement |
 | Terraform | AWS ~5.0 / Databricks ~1.40 | Infrastructure provisioning — S3, IAM, RDS, MWAA, networking |
@@ -45,14 +45,14 @@ archetype-core-etl/
 │   └── pipelines/       # batch_pipeline_dag.py, streaming_pipeline_dag.py
 ├── infrastructure/
 │   └── terraform/       # versions.tf, environments/dev/, modules/{s3,iam,networking,rds,mwaa}
-├── scripts/             # generate_data.py, init-db.sql, init-localstack.sh, setup-local.sh,
+├── databricks/governance/ # Unity Catalog grants, tags, masks, row filter, and audit queries\n├── scripts/             # generate_data.py, init-db.sql, init-localstack.sh, setup-local.sh,
 │                        #   docker-entrypoint-init.sh, update-databricks-tables.sql
 ├── tests/
 │   ├── unit/            # Per-module unit tests
 │   ├── integration/     # External-system tests (marked slow)
 │   ├── acceptance/      # Spec-level acceptance tests
 │   └── fixtures/        # Shared test fixtures
-├── data/                # Placeholder directories for external/, interim/, processed/ data
+├── notebooks/production/ # Governed PySpark transformation reference\n├── data/                # Placeholder directories for external/, interim/, processed/ data
 ├── docs/                # Architecture diagrams, runbooks, ADRs
 ├── docker-compose.yml   # Full Airflow stack with Celery executor
 ├── docker-compose.override.yml.example  # Optional local service overrides
@@ -167,7 +167,7 @@ Records follow weighted distributions: 70/20/10% priority tiers (standard/expedi
 - **Parameterized SQL in Databricks** — Delta Lake writes use the Statement Execution API's native `parameters` field with `StatementParameterListItem`. No external values are interpolated into SQL strings.
 - **Isolated agent execution** — AI-assisted development runs inside a dev container with a default-deny outbound firewall and a pre-commit secrets hook.
 
-## Architecture Decisions
+## Unity Catalog Governance Reference\n\nThe reference implementation includes an inspectable governance layer under `databricks/governance/`: a dedicated `archetype_core.governed` namespace, group grants, a governed sensitivity tag, a column mask, a row filter, and audit queries against `system.access.audit`. Account groups are intentionally treated as prerequisites because identity provisioning belongs at the Databricks account layer.\n\n`notebooks/production/governed_transform.py` demonstrates a Spark-native transformation path with SHA-256 record hashing and idempotent Delta MERGE semantics. The operational Airflow writer remains SQL-based through the Statement Execution API; the notebook is the Databricks-compute implementation pattern.\n\n## Architecture Decisions
 
 ### ADR-1: Airflow over Prefect
 

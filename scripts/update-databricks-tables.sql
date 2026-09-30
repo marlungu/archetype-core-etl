@@ -2,8 +2,8 @@
 -- Note: Databricks ALTER TABLE ADD COLUMNS will fail if columns already exist.
 -- Run these only once, or check the table schema first with DESCRIBE TABLE.
 
-USE CATALOG archetype_etl;
-USE SCHEMA default;
+USE CATALOG archetype_core;
+USE SCHEMA governed;
 
 -- Add pipeline_run_id and token breakdown to bronze table
 ALTER TABLE classifications_bronze ADD COLUMNS (

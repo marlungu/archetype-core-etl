@@ -44,7 +44,7 @@ def configure_mwaa_runtime() -> None:
     )
 
     os.environ.setdefault("ARCHETYPE_DATABRICKS_CATALOG", "archetype_core")
-    os.environ.setdefault("ARCHETYPE_DATABRICKS_SCHEMA_NAME", "default")
+    os.environ.setdefault("ARCHETYPE_DATABRICKS_SCHEMA_NAME", "governed")
     os.environ.setdefault(
         "ARCHETYPE_DATABRICKS_HOST",
         "https://dbc-34205be5-3b63.cloud.databricks.com",

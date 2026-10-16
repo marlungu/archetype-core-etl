@@ -1,7 +1,7 @@
 # Phase 4 Domain-Wave Register
 
 **Status:** Working register; source inventory, owner review, and repository baseline reconciliation remain open  
-**Date:** 2026-10-14  
+**Date:** 2026-10-16  
 **Related operating model:** 68_phase4_migration_factory_domain_waves.md  
 **Qualification workbook:** phase4_source_qualification_workbook.xlsx
 
@@ -30,6 +30,12 @@ Read-only check performed 2026-10-14 against the connected `marlungu/archetype-c
 | Recorded Phase 3 close commit | `7859bc5df036a69fff2c71277bfb907f28d48aa5` was not found by the repository commit lookup | Reconcile commit provenance/history before treating repository `main` as the Phase 3 continuation baseline |
 
 This check establishes repository state only. It does not establish that the accessible repository is the intended Phase 4 system of record. The control artifacts may be reviewed on a draft branch; do not merge them or derive source inventory facts from the repository until the accountable project owner confirms the target repository, baseline, and inventory source of truth.
+
+## Source-inventory discovery check
+
+Read-only searches of the accessible project Google Drive were performed on 2026-10-16 for `HCAS source contract`, `PIM source contract`, `Phase 3 HCAS inventory`, and `source inventory Archetype`. No authoritative Phase 1–3 source inventory, HCAS/PIM source contract, or source-owner record was identified. Broader matches were unrelated MarOS operating records and an Archetype Core audit; they are not evidence for source qualification.
+
+**Disposition:** Inventory provenance, scope, custodian, owner assignments, and source facts remain unverified. Keep CAND-01 through CAND-03 **NOT ASSESSED**, leave WAVE-01 unassigned, and request the authoritative inventory and accountable custodian through the project governance channel before Gate 0 begins.
 
 ## Work items
 
